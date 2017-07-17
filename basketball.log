@@ -1,0 +1,2 @@
+DEBUG:urllib3.connectionpool:Starting new HTTP connection (1): stats.nba.com
+DEBUG:urllib3.connectionpool:http://stats.nba.com:80 "GET /stats/commonallplayers?IsOnlyCurrentSeason=1&LeagueID=00&Season=2016-17 HTTP/1.1" 200 13985

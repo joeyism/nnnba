@@ -58,18 +58,32 @@ def getAllPlayers():
     return total
 
 def manualFix(nba_player):
-    if nba_player.name == "Wade Baldwin IV":
-        nba_player.name = "Wade Baldwin"
-    elif nba_player.name == "James Ennis III":
-        nba_player.name = "James Ennis"
-    elif nba_player.name == "AJ Hammons":
-        nba_player.name = "A.J. Hammons"
-    elif nba_player.name == "Tim Hardaway Jr.":
-        nba_player.name = "Tim Hardaway"
-    elif nba_player.name == "Johnny O'Bryant III":
-        nba_player.name = "Johnny O'Bryant"
-    elif nba_player.name == "Nene":
-        nba_player.name = "Nene Hilario"
-    elif nba_player.name == "Derrick Jones Jr.":
-        nba_player.name == "Derrick Jones"
+    fix_names = { 
+        "Wade Baldwin IV": "Wade Baldwin",
+        "James Ennis III": "James Ennis",
+        "AJ Hammons": "A.J. Hammons",
+        "Tim Hardaway Jr.": "Tim Hardaway",
+        "Johnny O'Bryant III": "Johnny O'Bryant",
+        "Nene": "Nene Hilario",
+        "Derrick Jones Jr.": "Derrick Jones",
+        "RJ Hunter": "R.J. Hunter",
+        "CJ McCollum": "C.J. McCollum",
+        "KJ McDaniels": "K.J. McDaniels",
+        "CJ Miles": "C.J. Miles",
+        "Kelly Oubre Jr.": "Kelly Oubre",
+        "Gary Payton II": "Gary Payton",
+        "Otto Porter Jr.": "Otto Porter",
+        "Taurean Prince": "Taurean Waller-Prince",
+        "JJ Redick": "J.J. Redick",
+        "Glenn Robinson III": "Glenn Robinson",
+        "JR Smith": "J.R. Smith",
+        "PJ Tucker": "P.J. Tucker",
+        "TJ Warren": "T.J. Warren",
+        "CJ Wilcox": "C.J. Wilcox"
+    }
+    for listed_name in fix_names:
+        if nba_player.name == listed_name:
+            nba_player.name = fix_names[listed_name]
+            return nba_player
+
     return nba_player

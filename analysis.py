@@ -45,27 +45,33 @@ def baseline_model():
     return model
 
 X = X_df.values
-Y = Y_df.values
+Y = Y_df[0].values
 
 X = normalize(X)
-models = { "linear regression": linear_model.LinearRegression() }
+models = { 
+    "linear regression": linear_model.LinearRegression(),
+    "ridge": linear_model.Ridge(alpha = 0.5),
+    "bayesian ridge": linear_model.BayesianRidge()
+}
 model_results = {}
 
 for model_type, regr in models.items():
+    this_results = names.copy()
     regr = regr.fit(X,Y)
     
     results = regr.predict(X)
-    names['WORTH'] = results
+    this_results['WORTH'] = results
     #print "worth less than 0"
     #print names.ix[np.where(results<0)[0]]
     
     diffY = Y - results
-    names['SALARY_DIFF'] = diffY
-    names = names.sort_values(by="SALARY_DIFF", ascending=False)
+    this_results['SALARY_DIFF'] = diffY
+    this_results = this_results.sort_values(by="SALARY_DIFF", ascending=False)
     #print "undervalued"
-    undervalued = names.loc[names["SALARY_DIFF"] < 0]
+    undervalued = this_results.loc[this_results["SALARY_DIFF"] < 0]
     #print undervalued
-    model_results[model_type] = names
+    model_results[model_type] = this_results
+    print "Finished " + model_type
 
 def findUndervalued(model_type):
     names = model_results[model_type]

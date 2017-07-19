@@ -36,7 +36,7 @@ X_df = X_df.drop("W", 1).drop("L",1).drop("W_PCT",1)
 
 def baseline_model():
     model = Sequential()
-    model.add(Dense(57, input_dim=57, kernel_initializer='normal', activation='relu'))
+    model.add(Dense(54, input_dim=54, kernel_initializer='normal', activation='relu'))
     model.add(Dense(29, kernel_initializer='normal', activation='relu'))
     model.add(Dense(55, kernel_initializer='normal', activation='relu'))
     model.add(Dense(29, kernel_initializer='normal', activation='relu'))
@@ -51,25 +51,23 @@ X = normalize(X)
 models = { 
     "linear regression": linear_model.LinearRegression(),
     "ridge": linear_model.Ridge(alpha = 0.5),
-    "bayesian ridge": linear_model.BayesianRidge()
+    "bayesian ridge": linear_model.BayesianRidge(),
+    "keras regressor": KerasRegressor(build_fn=baseline_model, nb_epoch=100, batch_size=5, verbose=0)
 }
 model_results = {}
 
 for model_type, regr in models.items():
     this_results = names.copy()
-    regr = regr.fit(X,Y)
+    regr.fit(X,Y)
+    
     
     results = regr.predict(X)
     this_results['WORTH'] = results
-    #print "worth less than 0"
-    #print names.ix[np.where(results<0)[0]]
     
     diffY = Y - results
     this_results['SALARY_DIFF'] = diffY
     this_results = this_results.sort_values(by="SALARY_DIFF", ascending=False)
-    #print "undervalued"
-    undervalued = this_results.loc[this_results["SALARY_DIFF"] < 0]
-    #print undervalued
+
     model_results[model_type] = this_results
     print "Finished " + model_type
 
@@ -80,8 +78,12 @@ def findUndervalued(model_type):
 def findPlayerWorth(model_type, player_name):
     names = model_results[model_type]
     idx = names[names["NAME"] == player_name].index[0]
-    print "\nPaid: " + '${:,.2f}'.format(float(Y[idx])) + "\tWorth: " + '${:,.2f}'.format(float(results[idx])) + "\n"
+    print "\nPaid: " + '${:,.2f}'.format(float(Y[idx])) + "\tWorth: " + '${:,.2f}'.format(float(names["WORTH"][idx])) + "\n"
     findPlayerStats(player_name)
 
 def findPlayerStats(player_name):
     print X_df.loc[names["NAME"] == player_name, ]
+
+def showAvailableModels():
+    for model in models:
+        print model

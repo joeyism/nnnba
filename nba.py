@@ -12,18 +12,46 @@ class NBA_player:
         self.name = name
         self.stats = []
         self.salaries = []
+        self.header = []
 
-    def getPlayerStats(self):
-        yoy = player.PlayerYearOverYearSplits(measure_type="Base", player_id=self.player_id)
+    def __trimData__(self, measure_type, array):
+        if measure_type == "Base":
+            return array[5:-2]
+        elif measure_type == "Advanced":
+            return array[10:-2]
+
+    def __joinData__(self, list1, list2):
+        list_tot = []
+        for i, row in enumerate(list1):
+            list_tot.append((row[0], row[1] + list2[i][1]))
+        return list_tot
+
+    def getPlayerStats(self, measure_type="Base"):
+        yoy = player.PlayerYearOverYearSplits(measure_type=measure_type, player_id=self.player_id)
         json = yoy.json
         total = []
-        for yeardata in json["resultSets"][0]["rowSet"]:
-            yeardata = yeardata[5:]
-            year = yeardata.pop()
+        header = self.__trimData__(measure_type, json["resultSets"][0]["headers"])
+        for yeardata in json["resultSets"][1]["rowSet"]:
+            year = yeardata[-1]
+            yeardata = self.__trimData__(measure_type, yeardata)
             total.append((year, yeardata))
         
         self.stats = dict(total)
+        self.header = header
         return total
+
+    def getPlayerAdvStats(self):
+        yoy = self.getPlayerStats()
+        yoy_header = self.header
+        yoy_adv = self.getPlayerStats(measure_type="Advanced")
+        yoy_adv_header = self.header
+
+        yoy_tot = self.__joinData__(yoy, yoy_adv)
+        yoy_tot_header = yoy_header + yoy_adv_header
+
+        self.stats = dict(yoy_tot)
+        self.header = yoy_tot_header
+        return yoy_tot
 
     def setSalaries(self, salaries):
         self.salaries = dict(salaries)
@@ -45,7 +73,7 @@ class NBA_player:
         return salaries
 
     def summarize(self):
-        return { "name": self.name, "salaries": self.salaries, "stats": self.stats}
+        return { "name": self.name, "salaries": self.salaries, "stats": self.stats, "header": self.header}
 
 
 def getAllPlayers():

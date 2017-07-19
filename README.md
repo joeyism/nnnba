@@ -4,7 +4,7 @@
 Open up python, ipython or jupyter notebook from the root directory of this project, then run
 
 ``` python
-    %run nnnba.py
+> %run nnnba.py
 ```
 
 There are 4 models available:
@@ -16,7 +16,7 @@ There are 4 models available:
 To find undervalued players, run
 
 ``` python
-    findUndervalued(model_type)
+> findUndervalued(model_type)
 ```
 
 where `model_type` is one of the models described above
@@ -24,7 +24,7 @@ where `model_type` is one of the models described above
 To find a player's worth in each model, run
 
 ``` python
-    findPlayerWorth(model_type, player_name)
+> findPlayerWorth(model_type, player_name)
 ```
 
 where `model_type` is one of the models described above, and `player_name` is the player's name
@@ -32,7 +32,7 @@ where `model_type` is one of the models described above, and `player_name` is th
 ### For example
 
 ``` python
-    findPlayerWorth("linear regression", "Giannis Antetokounmpo")
+> findPlayerWorth("linear regression", "Giannis Antetokounmpo")
 ```
 
 

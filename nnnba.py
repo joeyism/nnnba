@@ -11,6 +11,7 @@ from sklearn.preprocessing import normalize
 from sklearn.pipeline import Pipeline
 from sklearn import linear_model
 from sklearn import ensemble
+from sklearn.preprocessing import PolynomialFeatures
 import xgboost as xgb
 
 pd.set_option('display.max_columns', None)
@@ -52,7 +53,7 @@ def baseline_model():
 X = X_df.values
 Y = Y_df[0].values
 
-X = normalize(X)
+#X = normalize(X)
 models = { 
     "linear regression": linear_model.LinearRegression(),
     "ridge": linear_model.Ridge(alpha = 0.5),
@@ -60,7 +61,8 @@ models = {
     "keras regressor": KerasRegressor(build_fn=baseline_model, nb_epoch=100, batch_size=5, verbose=0),
     "gradient boosting": ensemble.GradientBoostingRegressor(n_estimators= 500, max_depth= 2, learning_rate=0.01, loss="ls"),
     "lassocv": linear_model.LassoCV(alphas = [1, 0.1, 0.001, 0.0005]),
-    "xgb": xgb.XGBRegressor(n_estimators=160, max_depth=2, learning_rate=0.1)
+    "xgb": xgb.XGBRegressor(n_estimators=160, max_depth=2, learning_rate=0.1),
+    "polynomial regression": Pipeline([('poly', PolynomialFeatures(degree=2)), ('linear', linear_model.LinearRegression())])
 }
 model_results = {}
 

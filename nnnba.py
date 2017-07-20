@@ -2,6 +2,8 @@ import json
 import pandas as pd
 import sys
 import numpy as np
+from logger import *
+
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.wrappers.scikit_learn import KerasRegressor
@@ -13,93 +15,138 @@ from sklearn import linear_model
 from sklearn import ensemble
 from sklearn.preprocessing import PolynomialFeatures
 import xgboost as xgb
+import prepare_data
 
 pd.set_option('display.max_columns', None)
 
-with open("crawled_data/raw_data.json", "r") as data_file:
-    raw_data = json.load(data_file)
 
-#print (raw_data[0]["header"])
-columns = raw_data[0]["header"]
-#columns = ("GP","W","L","W_PCT","MIN","FGM","FGA","FG_PCT","FG3M","FG3A","FG3_PCT","FTM","FTA","FT_PCT","OREB","DREB","REB","AST","TOV","STL","BLK","BLKA","PF","PFD","PTS","PLUS_MINUS","DD2","TD3","GP_RANK","W_RANK","L_RANK","W_PCT_RANK","MIN_RANK","FGM_RANK","FGA_RANK","FG_PCT_RANK","FG3M_RANK","FG3A_RANK","FG3_PCT_RANK","FTM_RANK","FTA_RANK","FT_PCT_RANK","OREB_RANK","DREB_RANK","REB_RANK","AST_RANK","TOV_RANK","STL_RANK","BLK_RANK","BLKA_RANK","PF_RANK","PFD_RANK","PTS_RANK","PLUS_MINUS_RANK","DD2_RANK","TD3_RANK")
+class NNNBA:
 
-X_df = pd.DataFrame(columns=columns)
-Y_df = pd.DataFrame()
-names = pd.DataFrame(columns=["NAME"])
+    ridge_init_alpha = [0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1, 3, 6, 10, 30, 60]
+    lasso_init_alpha = [0.0001, 0.0003, 0.0006, 0.001, 0.003, 0.006, 0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1]
+    elasticnet_init = { 
+        "l1_ratio":[0.1, 0.3, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1],
+        "alpha":[0.0001, 0.0003, 0.0006, 0.001, 0.003, 0.006, 0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1, 3, 6]
+    }
+
+    def __realpha__(self, alpha):
+        return [alpha * .6, alpha * .65, alpha * .7, alpha * .75, alpha * .8, alpha * .85, alpha * .9, alpha * .95, alpha, alpha * 1.05, alpha * 1.1, alpha * 1.15, alpha * 1.25, alpha * 1.3, alpha * 1.35, alpha * 1.4]
+
+    def __reratio__(self, ratio):
+        return [ratio * .85, ratio * .9, ratio * .95, ratio, ratio * 1.05, ratio * 1.1, ratio * 1.15]
+
+    def __baseline_model__():
+        model = Sequential()
+        model.add(Dense(72, input_dim=72, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(72, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(150, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(75, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(38, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(1, kernel_initializer='normal')) 
+        model.compile(loss='mean_squared_error', optimizer='adam') 
+        return model
 
 
-print ("Processing data")
-for i, player in enumerate(raw_data):
-    if "2016-17" in player["salaries"] and "2016-17" in player["stats"]:
-        Y_df = Y_df.append([player["salaries"]["2016-17"]])
-        X_df.loc[len(X_df)] = player["stats"]["2016-17"]
-        names.loc[len(names)] = player["name"]
-    else:
-        continue
 
-X_df = X_df.drop("W", 1).drop("L",1).drop("W_PCT",1)
+    models = { 
+        "linear regression w intercept": linear_model.LinearRegression(fit_intercept=True),
+        "linear regression wout intercept": linear_model.LinearRegression(fit_intercept=False),
+        "ridge w intercept": linear_model.RidgeCV(alphas = ridge_init_alpha, fit_intercept=True),
+        "ridge wout intercept": linear_model.RidgeCV(alphas = ridge_init_alpha, fit_intercept=False),
+        "lasso w intercept": linear_model.LassoCV( alphas = lasso_init_alpha, max_iter = 50000, cv = 10, fit_intercept = True),
+        "lasso wout intercept": linear_model.LassoCV( alphas = lasso_init_alpha, max_iter = 50000, cv = 10, fit_intercept =False),
+        "elasticnet": linear_model.ElasticNetCV(l1_ratio = elasticnet_init["l1_ratio"], alphas = elasticnet_init["alpha"], max_iter = 5000, cv = 10),
+        "keras regressor": KerasRegressor(build_fn=__baseline_model__, nb_epoch=100, batch_size=5, verbose=0),
+        "xgb": xgb.XGBRegressor(n_estimators=1500, max_depth=2, learning_rate=0.01)
+    }
 
-def baseline_model():
-    model = Sequential()
-    model.add(Dense(98, input_dim=98, kernel_initializer='normal', activation='relu'))
-    model.add(Dense(98, kernel_initializer='normal', activation='relu'))
-    model.add(Dense(196, kernel_initializer='normal', activation='relu'))
-    model.add(Dense(98, kernel_initializer='normal', activation='relu'))
-    model.add(Dense(59, kernel_initializer='normal', activation='relu'))
-    model.add(Dense(1, kernel_initializer='normal')) 
-    model.compile(loss='mean_squared_error', optimizer='adam') 
-    return model
+    default_model_type = "linear regression w intercept"
 
-X = X_df.values
-Y = Y_df[0].values
+    def __remodel__(self, model_type, regr, X):
+        if model_type == "ridge":
+            alpha = regr.alpha_
+            regr = linear_model.RidgeCV(alphas = self.__realpha__(alpha), cv = 10)
+        elif model_type == "lasso":
+            alpha = regr.alpha_
+            regr = linear_model.LassoCV(alphas = self.__realpha__(alpha), max_iter = 50000, cv = 10)
+        elif model_type == "elasticnet":
+            alpha = regr.alpha_
+            ratio = regr.l1_ratio_
+            regr = linear_model.ElasticNetCV(l1_ratio = self.__reratio__(ratio), alphas = self.elasticnet_init["alpha"], max_iter = 50000, cv = 10)
 
-#X = normalize(X)
-models = { 
-    "linear regression": linear_model.LinearRegression(),
-    "ridge": linear_model.Ridge(alpha = 0.5),
-    "bayesian ridge": linear_model.BayesianRidge(),
-    "keras regressor": KerasRegressor(build_fn=baseline_model, nb_epoch=100, batch_size=5, verbose=0),
-    "gradient boosting": ensemble.GradientBoostingRegressor(n_estimators= 500, max_depth= 2, learning_rate=0.01, loss="ls"),
-    "lassocv": linear_model.LassoCV(alphas = [1, 0.1, 0.001, 0.0005]),
-    "xgb": xgb.XGBRegressor(n_estimators=160, max_depth=2, learning_rate=0.1),
-    "polynomial regression": Pipeline([('poly', PolynomialFeatures(degree=2)), ('linear', linear_model.LinearRegression())])
-}
-model_results = {}
+        regr.fit(X, self.Y)
+        return regr
+        
 
-for model_type, regr in models.items():
-    this_results = names.copy()
-    regr.fit(X,Y)
+    def __init__(self):
+        with open("crawled_data/raw_data.json", "r") as data_file:
+            raw_data = json.load(data_file)
+
+        columns = raw_data[0]["header"]
+
+        self.X_df = pd.DataFrame(columns=columns)
+        Y_df = pd.DataFrame()
+        names = pd.DataFrame(columns=["NAME"])
+
+
+        logger.debug("Processing data")
+        for i, player in enumerate(raw_data):
+            if "2016-17" in player["salaries"] and "2016-17" in player["stats"]:
+                Y_df = Y_df.append([player["salaries"]["2016-17"]])
+                self.X_df.loc[len(self.X_df)] = player["stats"]["2016-17"]
+                names.loc[len(names)] = player["name"]
+            else:
+                continue
+
+        self.X_df = self.X_df.drop("W", 1).drop("L",1).drop("W_PCT",1)
+
+        X = self.X_df.values
+        self.Y = Y_df[0].values
+        self.model_results = {}
+        self.names = names
+
+        for model_type, regr in self.models.items():
+            this_results = names.copy()
+            regr.fit(X, self.Y)
+
+            regr = self.__remodel__(model_type, regr, X)
+            
+            results = regr.predict(X)
+            this_results['WORTH'] = results
+            
+            diffY = self.Y - results
+            this_results['SALARY_DIFF'] = diffY
+            this_results = this_results.sort_values(by="SALARY_DIFF", ascending=False)
+            
+            self.models[model_type] = regr
+            self.model_results[model_type] = this_results
+            logger.debug("Finished " + model_type)
+
+
+    def findUndervalued(self, model_type=default_model_type):
+        names = self.model_results[model_type]
+        print(names.loc[names["SALARY_DIFF"] < 0])
     
+    def findPlayerWorth(self, player_name, model_type=default_model_type):
+        names = self.model_results[model_type]
+        idx = names[names["NAME"] == player_name].index[0]
+        print("\nPaid: " + '${:,.2f}'.format(float(self.Y[idx])) + "\tWorth: " + '${:,.2f}'.format(float(names["WORTH"][idx])) + "\n")
+        self.findPlayerStats(player_name, trim=True)
     
-    results = regr.predict(X)
-    this_results['WORTH'] = results
+    def findPlayerStats(self, player_name, trim=False):
+        columns = self.X_df.columns
+        if trim:
+            columns = columns[:23]
+        print(self.X_df.loc[self.names["NAME"] == player_name, columns])
     
-    diffY = Y - results
-    this_results['SALARY_DIFF'] = diffY
-    this_results = this_results.sort_values(by="SALARY_DIFF", ascending=False)
+    def findBestPlayer(self, model_type=default_model_type):
+        names = self.model_results[model_type]
+        print(names.sort_values(by="WORTH")
+    )
+    
+    def showAvailableModels(self):
+        for model in self.models:
+            print(model)
 
-    model_results[model_type] = this_results
-    print ("Finished " + model_type)
-
-def findUndervalued(model_type="linear regression"):
-    names = model_results[model_type]
-    print (names.loc[names["SALARY_DIFF"] < 0])
-
-def findPlayerWorth(player_name, model_type="linear regression"):
-    names = model_results[model_type]
-    idx = names[names["NAME"] == player_name].index[0]
-    print ("\nPaid: " + '${:,.2f}'.format(float(Y[idx])) + "\tWorth: " + '${:,.2f}'.format(float(names["WORTH"][idx])) + "\n")
-    findPlayerStats(player_name)
-
-def findPlayerStats(player_name):
-    print (X_df.loc[names["NAME"] == player_name, ])
-
-def findBestPlayer(model_type="linear regression"):
-    names = model_results[model_type]
-    print (names.sort_values(by="WORTH")
-)
-
-
-def showAvailableModels():
-    for model in models:
-        print (model)
+def get_data():
+    prepare_data.start()

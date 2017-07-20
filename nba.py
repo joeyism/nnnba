@@ -14,11 +14,16 @@ class NBA_player:
         self.salaries = []
         self.header = []
 
-    def __trimData__(self, measure_type, array):
+    def __trimData__(self, measure_type, array): #TODO: bring some ranking back
         if measure_type == "Base":
-            return array[5:-2]
+            return array[5:-30] #removed basic rankings
         elif measure_type == "Advanced":
-            return array[10:-2]
+            return array[10:-32] #removed adv ranking
+        elif measure_type == "Scoring":
+            return array[15:-22] # removed ranking
+        elif measure_type == "Usage":
+            return array[11:-25] # removed ranking
+        return array
 
     def __joinData__(self, list1, list2):
         list_tot = []
@@ -41,13 +46,16 @@ class NBA_player:
         return total
 
     def getPlayerAdvStats(self):
+        measure_types = ["Advanced", "Scoring"]
         yoy = self.getPlayerStats()
         yoy_header = self.header
-        yoy_adv = self.getPlayerStats(measure_type="Advanced")
-        yoy_adv_header = self.header
-
-        yoy_tot = self.__joinData__(yoy, yoy_adv)
-        yoy_tot_header = yoy_header + yoy_adv_header
+        yoy_tot = yoy
+        yoy_tot_header = yoy_header
+        for measure_type in measure_types:
+            yoy_adv = self.getPlayerStats(measure_type=measure_type)
+            yoy_adv_header = self.header
+            yoy_tot = self.__joinData__(yoy_tot, yoy_adv)
+            yoy_tot_header = yoy_tot_header + yoy_adv_header
 
         self.stats = dict(yoy_tot)
         self.header = yoy_tot_header

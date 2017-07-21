@@ -16,13 +16,13 @@ class NBA_player:
 
     def __trimData__(self, measure_type, array): #TODO: bring some ranking back
         if measure_type == "Base":
-            return array[5:-30] #removed basic rankings
+            return array[5:-2] #[5:-30] #removed basic rankings
         elif measure_type == "Advanced":
-            return array[10:-32] #removed adv ranking
+            return array[10:-2] #[10:-32] #removed adv ranking
         elif measure_type == "Scoring":
-            return array[15:-22] # removed ranking
+            return array[10:-2] #[15:-22] # removed ranking
         elif measure_type == "Usage":
-            return array[11:-25] # removed ranking
+            return array[10:-2] #[11:-25] # removed ranking
         return array
 
     def __joinData__(self, list1, list2):
@@ -46,7 +46,7 @@ class NBA_player:
         return total
 
     def getPlayerAdvStats(self):
-        measure_types = ["Advanced", "Scoring"]
+        measure_types = ["Advanced", "Scoring", "Usage"]
         yoy = self.getPlayerStats()
         yoy_header = self.header
         yoy_tot = yoy

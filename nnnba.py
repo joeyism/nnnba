@@ -7,8 +7,6 @@ from logger import *
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.wrappers.scikit_learn import KerasRegressor
-from sklearn.model_selection import cross_val_score
-from sklearn.model_selection import KFold
 from sklearn.preprocessing import normalize
 from sklearn.pipeline import Pipeline
 from sklearn import linear_model
@@ -37,11 +35,11 @@ class NNNBA:
 
     def __baseline_model__():
         model = Sequential()
-        model.add(Dense(72, input_dim=72, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(72, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(150, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(75, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(38, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(180, input_dim=180, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(96, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(192, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(96, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(48, kernel_initializer='normal', activation='relu'))
         model.add(Dense(1, kernel_initializer='normal')) 
         model.compile(loss='mean_squared_error', optimizer='adam') 
         return model

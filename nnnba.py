@@ -12,6 +12,7 @@ from sklearn.pipeline import Pipeline
 from sklearn import linear_model
 from sklearn import ensemble
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn import svm
 import xgboost as xgb
 import prepare_data
 
@@ -35,7 +36,7 @@ class NNNBA:
 
     def __baseline_model__():
         model = Sequential()
-        model.add(Dense(180, input_dim=180, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(174, input_dim=174, kernel_initializer='normal', activation='relu'))
         model.add(Dense(96, kernel_initializer='normal', activation='relu'))
         model.add(Dense(192, kernel_initializer='normal', activation='relu'))
         model.add(Dense(96, kernel_initializer='normal', activation='relu'))
@@ -51,11 +52,12 @@ class NNNBA:
         "linear regression wout intercept": linear_model.LinearRegression(fit_intercept=False),
         "ridge w intercept": linear_model.RidgeCV(alphas = ridge_init_alpha, fit_intercept=True),
         "ridge wout intercept": linear_model.RidgeCV(alphas = ridge_init_alpha, fit_intercept=False),
-        "lasso w intercept": linear_model.LassoCV( alphas = lasso_init_alpha, max_iter = 50000, cv = 10, fit_intercept = True),
-        "lasso wout intercept": linear_model.LassoCV( alphas = lasso_init_alpha, max_iter = 50000, cv = 10, fit_intercept =False),
+        "lasso w intercept": linear_model.LassoCV( alphas = lasso_init_alpha, max_iter = 5000, cv = 10, fit_intercept = True),
+        "lasso wout intercept": linear_model.LassoCV( alphas = lasso_init_alpha, max_iter = 5000, cv = 10, fit_intercept =False),
         "elasticnet": linear_model.ElasticNetCV(l1_ratio = elasticnet_init["l1_ratio"], alphas = elasticnet_init["alpha"], max_iter = 5000, cv = 10),
         "keras regressor": KerasRegressor(build_fn=__baseline_model__, nb_epoch=100, batch_size=5, verbose=0),
-        "xgb": xgb.XGBRegressor(n_estimators=1500, max_depth=2, learning_rate=0.01)
+        "xgb": xgb.XGBRegressor(n_estimators=1500, max_depth=2, learning_rate=0.01),
+        "svr": svm.SVR(kernel="linear", C=1e3)
     }
 
     default_model_type = "linear regression w intercept"

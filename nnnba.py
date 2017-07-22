@@ -36,7 +36,7 @@ class NNNBA:
 
     def __baseline_model__():
         model = Sequential()
-        model.add(Dense(174, input_dim=174, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(164, input_dim=164, kernel_initializer='normal', activation='relu'))
         model.add(Dense(96, kernel_initializer='normal', activation='relu'))
         model.add(Dense(192, kernel_initializer='normal', activation='relu'))
         model.add(Dense(96, kernel_initializer='normal', activation='relu'))
@@ -48,19 +48,16 @@ class NNNBA:
 
 
     models = { 
-        "linear regression w intercept": linear_model.LinearRegression(fit_intercept=True),
-        "linear regression wout intercept": linear_model.LinearRegression(fit_intercept=False),
-        "ridge w intercept": linear_model.RidgeCV(alphas = ridge_init_alpha, fit_intercept=True),
-        "ridge wout intercept": linear_model.RidgeCV(alphas = ridge_init_alpha, fit_intercept=False),
-        "lasso w intercept": linear_model.LassoCV( alphas = lasso_init_alpha, max_iter = 5000, cv = 10, fit_intercept = True),
-        "lasso wout intercept": linear_model.LassoCV( alphas = lasso_init_alpha, max_iter = 5000, cv = 10, fit_intercept =False),
-        "elasticnet": linear_model.ElasticNetCV(l1_ratio = elasticnet_init["l1_ratio"], alphas = elasticnet_init["alpha"], max_iter = 5000, cv = 10),
+        "linear regression": linear_model.LinearRegression(fit_intercept=True),
+        "ridge": linear_model.RidgeCV(alphas = ridge_init_alpha, fit_intercept=True),
+        "lasso": linear_model.LassoCV( alphas = lasso_init_alpha, max_iter = 5000, cv = 10, fit_intercept = True),
+        #"elasticnet": linear_model.ElasticNetCV(l1_ratio = elasticnet_init["l1_ratio"], alphas = elasticnet_init["alpha"], max_iter = 1000, cv = 3),
         "keras regressor": KerasRegressor(build_fn=__baseline_model__, nb_epoch=100, batch_size=5, verbose=0),
         "xgb": xgb.XGBRegressor(n_estimators=1500, max_depth=2, learning_rate=0.01),
         "svr": svm.SVR(kernel="linear", C=1e3)
     }
 
-    default_model_type = "linear regression w intercept"
+    default_model_type = "linear regression"
 
     def __remodel__(self, model_type, regr, X):
         if model_type == "ridge":
@@ -68,11 +65,11 @@ class NNNBA:
             regr = linear_model.RidgeCV(alphas = self.__realpha__(alpha), cv = 10)
         elif model_type == "lasso":
             alpha = regr.alpha_
-            regr = linear_model.LassoCV(alphas = self.__realpha__(alpha), max_iter = 50000, cv = 10)
+            regr = linear_model.LassoCV(alphas = self.__realpha__(alpha), max_iter = 5000, cv = 10)
         elif model_type == "elasticnet":
             alpha = regr.alpha_
             ratio = regr.l1_ratio_
-            regr = linear_model.ElasticNetCV(l1_ratio = self.__reratio__(ratio), alphas = self.elasticnet_init["alpha"], max_iter = 50000, cv = 10)
+            regr = linear_model.ElasticNetCV(l1_ratio = self.__reratio__(ratio), alphas = self.elasticnet_init["alpha"], max_iter = 1000, cv = 3)
 
         regr.fit(X, self.Y)
         return regr
@@ -86,7 +83,7 @@ class NNNBA:
 
         self.X_df = pd.DataFrame(columns=columns)
         Y_df = pd.DataFrame()
-        names = pd.DataFrame(columns=["NAME"])
+        names = pd.DataFrame(columns=[ "NAME", "PROJECTED_SALARIES" ])
 
 
         logger.debug("Processing data")
@@ -94,18 +91,29 @@ class NNNBA:
             if "2016-17" in player["salaries"] and "2016-17" in player["stats"]:
                 Y_df = Y_df.append([player["salaries"]["2016-17"]])
                 self.X_df.loc[len(self.X_df)] = player["stats"]["2016-17"]
-                names.loc[len(names)] = player["name"]
+                projected_salaries = 0
+                try:
+                    projected_salaries = player["projected_salaries"][0]
+                except:
+                    pass
+                names.loc[len(names)] = [ player["name"], projected_salaries ]
             else:
                 continue
 
         self.X_df = self.X_df.drop("W", 1).drop("L",1).drop("W_PCT",1)
 
+
         X = self.X_df.values
+
+        #X = normalize(X) #Normalize X decreases worth
+        #TODO: normalize Y with min and maxes, then revert it back
+
         self.Y = Y_df[0].values
         self.model_results = {}
         self.names = names
 
         for model_type, regr in self.models.items():
+            logger.debug("Started  " + model_type)
             this_results = names.copy()
             regr.fit(X, self.Y)
 
@@ -114,7 +122,7 @@ class NNNBA:
             results = regr.predict(X)
             this_results['WORTH'] = results
             
-            diffY = self.Y - results
+            diffY = this_results["PROJECTED_SALARIES"].values - results
             this_results['SALARY_DIFF'] = diffY
             this_results = this_results.sort_values(by="SALARY_DIFF", ascending=False)
             
@@ -125,12 +133,12 @@ class NNNBA:
 
     def findUndervalued(self, model_type=default_model_type):
         names = self.model_results[model_type]
-        print(names.loc[names["SALARY_DIFF"] < 0])
+        print(names.loc[(names["SALARY_DIFF"] < 0) & (names["PROJECTED_SALARIES"] > 0)])
     
     def findPlayerWorth(self, player_name, model_type=default_model_type):
         names = self.model_results[model_type]
         idx = names[names["NAME"] == player_name].index[0]
-        print("\nPaid: " + '${:,.2f}'.format(float(self.Y[idx])) + "\tWorth: " + '${:,.2f}'.format(float(names["WORTH"][idx])) + "\n")
+        print("\nPaid: " + '${:,.2f}'.format(float(self.Y[idx])) + "\tFuture Salary: " + '${:,.2f}'.format(float(self.names["PROJECTED_SALARIES"][idx])) + "\tWorth: " + '${:,.2f}'.format(float(names["WORTH"][idx])) + "\n")
         self.findPlayerStats(player_name, trim=True)
     
     def findPlayerStats(self, player_name, trim=False):
@@ -148,5 +156,5 @@ class NNNBA:
         for model in self.models:
             print(model)
 
-def get_data():
-    prepare_data.start()
+def get_data(parallel=True):
+    prepare_data.start(parallel=parallel)

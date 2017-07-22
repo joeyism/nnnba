@@ -3,6 +3,7 @@ import requests
 from nba_py import player
 from lxml import html
 import re
+from logger import *
 
 class NBA_player:
 
@@ -12,17 +13,18 @@ class NBA_player:
         self.name = name
         self.stats = []
         self.salaries = []
+        self.projected_salaries = []
         self.header = []
 
-    def __trimData__(self, measure_type, array): #TODO: bring some ranking back
+    def __trimData__(self, measure_type, array): 
         if measure_type == "Base":
             return array[5:-2] #[5:-30] #removed basic rankings
         elif measure_type == "Advanced":
             return array[10:-2] #[10:-32] #removed adv ranking
         elif measure_type == "Scoring":
-            return array[10:-2] #[15:-22] # removed ranking
+            return array[10:25] + array[30:-2] #[15:-22] # removed ranking
         elif measure_type == "Usage":
-            return array[10:-2] #[11:-25] # removed ranking
+            return array[10:25] + array[30:-2] #[11:-25] # removed ranking
         return array
 
     def __joinData__(self, list1, list2):
@@ -43,6 +45,8 @@ class NBA_player:
         
         self.stats = dict(total)
         self.header = header
+        self.projected_salaries = self.getProjectedSalary()
+
         return total
 
     def getPlayerAdvStats(self):
@@ -64,13 +68,16 @@ class NBA_player:
     def setSalaries(self, salaries):
         self.salaries = dict(salaries)
     
-    def __parseSalaryText(rawSalary):
+    def __parseSalaryText(self, rawSalary):
         textSalary = re.sub('\s+', '', rawSalary)
-        return int(textSalary[1:].replace(",",""))
+        try:
+            return int(textSalary[1:].replace(",",""))
+        except:
+            return 0
     
     def getProjectedSalary(self):
-        playerName = "-".join(playerName.replace(".","").split(" "))
-        url = "http://hoopshype.com/player/{}/salary/".format(self.name)
+        playerName = "-".join(self.name.replace(".","").split(" "))
+        url = "http://hoopshype.com/player/{}/salary/".format(playerName)
         page = requests.get(url)
         tree = html.fromstring(page.content)
         salaryParents = tree.xpath('//*[@id="content"]/div[2]/div[3]/div[1]/div[1]/table/tbody/tr')
@@ -81,7 +88,7 @@ class NBA_player:
         return salaries
 
     def summarize(self):
-        return { "name": self.name, "salaries": self.salaries, "stats": self.stats, "header": self.header}
+        return { "name": self.name, "salaries": self.salaries, "stats": self.stats, "header": self.header, "projected_salaries": self.projected_salaries }
 
 
 def getAllPlayers():

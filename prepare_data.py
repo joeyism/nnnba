@@ -29,9 +29,11 @@ def start(parallel=True, measure_type="Advanced"):
     print ("process to raw data")
     raw_data = []
     if parallel:
+        logger.debug("Computing in Parallel")
         func = partial(process_to_raw_data, bballref_players)
         raw_data = pool.map(func, nbastats)
     else:
+        logger.debug("Computing in Series")
         for player_stat_info in nbastats:
             raw_data.append(process_to_raw_data(bballref_players, player_stat_info))
             

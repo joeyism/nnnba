@@ -9,7 +9,7 @@ from logger import *
 def start(parallel=True, measure_type="Advanced"):
     pool = ThreadPool(4)
     
-    def process_to_raw_data(bballref_players, player_stat_info):
+    def process_to_raw_data(bballref_players, player_stat_info): #TODO: Add position
         nba_player = NBA_player(player_stat_info[0], player_stat_info[1], player_stat_info[2])
         logger.debug(nba_player.name)
         nba_player = nba.manualFix(nba_player)
@@ -18,6 +18,8 @@ def start(parallel=True, measure_type="Advanced"):
         elif measure_type == "Basic":
             nba_player.getPlayerStats()
         nba_player.setSalaries(bballref_players[nba_player.name].salaries)
+        nba_player.setAge(bballref_players[nba_player.name].age)
+        nba_player.setPositions(bballref_players[nba_player.name].positions)
         return nba_player.summarize()
     
     print ("Start")

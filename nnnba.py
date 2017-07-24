@@ -156,5 +156,8 @@ class NNNBA:
         for model in self.models:
             print(model)
 
+    def getCoefFromModel(self, model_name):
+        return pdf.DataFrame(self.models[model_name].coef_, index=self.X_df.columns, columns=["coef"]).sort_values(by="coef")
+
 def get_data(parallel=True):
     prepare_data.start(parallel=parallel)

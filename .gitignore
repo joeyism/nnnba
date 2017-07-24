@@ -1,3 +1,4 @@
 *.pyc
 *.swp
 **/*.pyc
+nba_cache.sqlite

@@ -14,7 +14,10 @@ class NBA_player:
         self.stats = []
         self.salaries = []
         self.projected_salaries = []
-        self.header = []
+        self.header = [] 
+        self.age = None
+        self.positions = []
+        #TODO: get player metadata, such as team, etc.
 
     def __trimData__(self, measure_type, array): 
         if measure_type == "Base":
@@ -67,6 +70,12 @@ class NBA_player:
 
     def setSalaries(self, salaries):
         self.salaries = dict(salaries)
+
+    def setAge(self, age):
+        self.age = age
+
+    def setPositions(self, positions):
+        self.positions = positions
     
     def __parseSalaryText(self, rawSalary):
         textSalary = re.sub('\s+', '', rawSalary)
@@ -88,7 +97,7 @@ class NBA_player:
         return salaries
 
     def summarize(self):
-        return { "name": self.name, "salaries": self.salaries, "stats": self.stats, "header": self.header, "projected_salaries": self.projected_salaries }
+        return { "name": self.name, "salaries": self.salaries, "stats": self.stats, "header": self.header, "projected_salaries": self.projected_salaries, "age": self.age , "positions": self.positions}
 
 
 def getAllPlayers():

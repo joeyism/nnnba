@@ -4,6 +4,9 @@ import logging
 import json
 from bs4 import Comment
 from bs4 import BeautifulSoup
+from dateutil.relativedelta import relativedelta
+from datetime import date
+from datetime import datetime
 
 class Player(object):
     # Regex patterns for player info
@@ -17,6 +20,7 @@ class Player(object):
     height = None
     weight = None
     salaries = []
+    age = None
 
     overview_url = None
     overview_url_content = None
@@ -37,6 +41,7 @@ class Player(object):
         self.overview_url_content = None
         self.gamelog_data = None
         self.gamelog_url_list = []
+        self.age = None
 
         if scrape_data:
             self.scrape_data()
@@ -58,6 +63,7 @@ class Player(object):
             tempPositions = re.findall(self.POSN_PATTERN,player_position_text)
             self.positions = [position.strip().encode("utf8") for position in tempPositions]
             self.salaries = self.findSalaries(overview_soup)
+            self.age = self.findAge(overview_soup)
 
         except Exception as ex:
             logging.error(ex.message)
@@ -85,6 +91,13 @@ class Player(object):
             salary = self.salaryTextToFloat(each_raw_salary.find_all("td")[2].text)
             total_salaries.append((year, salary))
         return total_salaries
+
+    def findAge(self, soupped):
+        year = soupped.find("span", {"id": "necro-birth"})
+        birth_year = year.get("data-birth")
+        birth_time = datetime.strptime(birth_year, '%Y-%m-%d')
+        rel =  relativedelta(date.today(), birth_time)
+        return rel.years
 
     def salaryTextToFloat(self, text):
         return float(text[1:].replace(",",""))

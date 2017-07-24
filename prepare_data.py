@@ -10,7 +10,14 @@ def start(parallel=True, measure_type="Advanced"):
     pool = ThreadPool(4)
     
     def process_to_raw_data(bballref_players, player_stat_info): #TODO: Add position
+
         nba_player = NBA_player(player_stat_info[0], player_stat_info[1], player_stat_info[2])
+
+        try: #ignore ones who aren't playing this upcoming year, i.e. retired
+            bballref_players[nba_player.name]
+        except:
+            return None
+
         logger.debug(nba_player.name)
         nba_player = nba.manualFix(nba_player)
         if measure_type == "Advanced":
@@ -33,11 +40,12 @@ def start(parallel=True, measure_type="Advanced"):
     if parallel:
         logger.debug("Computing in Parallel")
         func = partial(process_to_raw_data, bballref_players)
-        raw_data = pool.map(func, nbastats)
+        raw_data = [x for x in pool.map(func, nbastats) if x is not None]
     else:
         logger.debug("Computing in Series")
         for player_stat_info in nbastats:
             raw_data.append(process_to_raw_data(bballref_players, player_stat_info))
+        raw_data = [x for x in raw_data if x is not None]
             
     with open("crawled_data/raw_data.json", "w") as outfile:
         json.dump(raw_data, outfile)

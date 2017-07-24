@@ -21,13 +21,15 @@ class NBA_player:
 
     def __trimData__(self, measure_type, array): 
         if measure_type == "Base":
-            return array[5:-2] #[5:-30] #removed basic rankings
+            return array[5:33] #[5:-30] #removed basic rankings
         elif measure_type == "Advanced":
-            return array[10:-2] #[10:-32] #removed adv ranking
+            return array[10:25] #+ array[30:-32] #[10:-32] #removed adv ranking
         elif measure_type == "Scoring":
-            return array[10:25] + array[30:-2] #[15:-22] # removed ranking
+            return array[10:25] #+ array[30:-2] #[15:-22] # removed ranking
         elif measure_type == "Usage":
-            return array[10:25] + array[30:-2] #[11:-25] # removed ranking
+            return array[10:25] #+ array[30:-2] #[11:-25] # removed ranking
+        elif measure_type == "Misc":
+            return array[10:18]
         return array
 
     def __joinData__(self, list1, list2):
@@ -53,7 +55,7 @@ class NBA_player:
         return total
 
     def getPlayerAdvStats(self):
-        measure_types = ["Advanced", "Scoring", "Usage"]
+        measure_types = ["Advanced", "Scoring", "Usage", "Misc"]
         yoy = self.getPlayerStats()
         yoy_header = self.header
         yoy_tot = yoy
@@ -138,4 +140,14 @@ def manualFix(nba_player):
             nba_player.name = fix_names[listed_name]
             return nba_player
 
+    return nba_player
+
+def test_headers(measure_type="Scoring"):
+    import pandas as pd
+    pd.set_option('display.max_columns', None)
+    nba_player = NBA_player("203382", "Baynes, Aron", "Aron Baynes")
+    nba_player.getPlayerStats(measure_type=measure_type)
+    df = pd.DataFrame(columns = nba_player.header)
+    df.loc[0] = nba_player.getPlayerStats(measure_type=measure_type)[0][1]
+    print(df)
     return nba_player

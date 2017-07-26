@@ -88,7 +88,8 @@ class NNNBA:
         "lasso": linear_model.LassoCV( alphas = __lasso_init_alpha, max_iter = 5000, cv = 10, fit_intercept = True),
         "keras regressor": KerasRegressor(build_fn=__baseline_model__, nb_epoch=100, batch_size=5, verbose=0),
         "xgb": xgb.XGBRegressor(n_estimators=1500, max_depth=2, learning_rate=0.01),
-        "elasticnet": linear_model.ElasticNetCV(l1_ratio = __elasticnet_init["l1_ratio"], alphas = __elasticnet_init["alpha"], max_iter = 1000, cv = 3)
+        "elasticnet": linear_model.ElasticNetCV(l1_ratio = __elasticnet_init["l1_ratio"], alphas = __elasticnet_init["alpha"], max_iter = 1000, cv = 3),
+        "theilsen": linear_model.TheilSenRegressor()
     }
 
 
@@ -127,7 +128,8 @@ class NNNBA:
         columns = raw_data[0]["header"]
         unique_columns = list(set( raw_data[0]["header"]))
         logger.debug("Columns: " + ", ".join(unique_columns))
-        positions = ["Point Guard", "Center", "Power Forward", "Shooting Guard", "Small Forward"]
+        positions = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"]
+
         for i, val in enumerate(positions):
             positions[i] = (val, i)
         positions_convert = dict(positions)
@@ -161,12 +163,19 @@ class NNNBA:
             else:
                 continue
 
+        #for col in ["DREB", "PTS", "FGM", "REB", "FG3M", "PCT_FG3M"]:
+        #    if min(self.X_df[col]) > 0:
+        #        try:
+        #            self.X_df[col] = np.log1p(self.X_df[col])
+        #        except:
+        #            pass
+
         self.X_df = self.X_df.T.drop_duplicates().T
         self.X_df = pd.concat([self.X_df, pd.Series(age, name="AGE"), pd.Series(positions, name="POSITION")], axis=1) 
         self.X_df = self.X_df.drop("FGA", 1).drop("W", 1).drop("L", 1).drop("W_PCT", 1)
 
-        # remove players who's played less than 15 games
-        idx_of_lt_gp = self.X_df.index[self.X_df["GP"] < 15]
+        # remove players who's played less than 15 games or young players (no way else to find if a player is on a rookie contract or not)
+        idx_of_lt_gp = self.X_df.index[(self.X_df["GP"] < 15) | (self.X_df["AGE"] <= 22)]
         self.X_df = self.X_df.drop(idx_of_lt_gp)
         Y_df = Y_df.drop(idx_of_lt_gp)
         age = pd.Series(age).drop(idx_of_lt_gp)
@@ -270,6 +279,14 @@ class NNNBA:
 
     def getCoefFromModel(self, model_name= default_model_type):
         return pd.DataFrame(self.models[model_name].coef_, index=self.X_df.columns, columns=["coef"]).sort_values(by="coef")
+
+    def plotXCol(self, col_name, X = None):
+        import matplotlib.pyplot as plt
+        if X is None:
+            X = self.X_df.sort_values(by=col_name)[col_name].values
+        plt.figure()
+        plt.scatter(range(len(X)), X)
+        plt.show()
 
 def get_data(parallel=True):
     prepare_data.start(parallel=parallel)

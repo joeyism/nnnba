@@ -3,6 +3,7 @@ import pandas as pd
 import sys
 import numpy as np
 from logger import *
+import logging
 
 from keras.models import Sequential
 from keras.layers import Dense
@@ -21,46 +22,80 @@ pd.set_option('display.max_columns', None)
 
 
 class NNNBA:
+    """
+    NNNBA class, which contains all the calculated information
+    """
 
-    ridge_init_alpha = [0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1, 3, 6, 10, 30, 60]
-    lasso_init_alpha = [0.0001, 0.0003, 0.0006, 0.001, 0.003, 0.006, 0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1]
-    elasticnet_init = { 
+    default_model_type = "lasso"
+    assumed_max_salary = 35350000.0
+
+
+    __threshold_per_col = {"OFF_RATING": 12, "PIE":0.11, "NET_RATING": 18, "GP": 50, "DEF_RATING": 7, "USG_PCT": 0.12, "FGA": None, "FGM": None, "FG3A": None, "PTS": None, "FTM": None, "FGM": None, "REB_PCT": None}
+    __outlier_cols_upper = ["OFF_RATING", "PIE", "NET_RATING", "USG_PCT", "PTS"]
+
+    __ridge_init_alpha = [0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1, 3, 6, 10, 30, 60]
+    __lasso_init_alpha = [0.0001, 0.0003, 0.0006, 0.001, 0.003, 0.006, 0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1]
+    __elasticnet_init = { 
         "l1_ratio":[0.1, 0.3, 0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 1],
         "alpha":[0.0001, 0.0003, 0.0006, 0.001, 0.003, 0.006, 0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1, 3, 6]
     }
 
     def __realpha__(self, alpha):
+        """
+        Function to recalculate alpha
+        """
         return [alpha * .6, alpha * .65, alpha * .7, alpha * .75, alpha * .8, alpha * .85, alpha * .9, alpha * .95, alpha, alpha * 1.05, alpha * 1.1, alpha * 1.15, alpha * 1.25, alpha * 1.3, alpha * 1.35, alpha * 1.4]
 
     def __reratio__(self, ratio):
+        """
+        Function to recalculate ratio
+        """
         return [ratio * .85, ratio * .9, ratio * .95, ratio, ratio * 1.05, ratio * 1.1, ratio * 1.15]
 
     def __baseline_model__():
+        """
+        Base Neural Network model
+        """
         model = Sequential()
-        model.add(Dense(83, input_dim=83, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(41, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(83, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(41, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(78, input_dim=78, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(40, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(80, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(40, kernel_initializer='normal', activation='relu'))
         model.add(Dense(20, kernel_initializer='normal', activation='relu'))
         model.add(Dense(1, kernel_initializer='normal')) 
         model.compile(loss='mean_squared_error', optimizer='adam') 
         return model
 
+    def __idx_of_median_outlier__(self, col, threshold=None, upper_outlier=True): #may need threshold=2
+        """
+        Find index of outlier based on distance from median
+        Distance from median = threshold, which is either passed in or calculated as a function of std from the passed in data
+        """
+        if threshold is None:
+            threshold = col.std()*2.5
+        logger.debug("median: " + str(col.median()) + " threshold: " + str(threshold))
+        diff = col - col.median()
+        if upper_outlier:
+            outlier = diff > threshold
+        else:
+            outlier = -1*diff > threshold
+        return list(outlier.index[outlier])
 
 
     models = { 
         "linear regression": linear_model.LinearRegression(fit_intercept=True),
-        "ridge": linear_model.RidgeCV(alphas = ridge_init_alpha, fit_intercept=True),
-        "lasso": linear_model.LassoCV( alphas = lasso_init_alpha, max_iter = 5000, cv = 10, fit_intercept = True),
+        "ridge": linear_model.RidgeCV(alphas = __ridge_init_alpha, fit_intercept=True),
+        "lasso": linear_model.LassoCV( alphas = __lasso_init_alpha, max_iter = 5000, cv = 10, fit_intercept = True),
         "keras regressor": KerasRegressor(build_fn=__baseline_model__, nb_epoch=100, batch_size=5, verbose=0),
         "xgb": xgb.XGBRegressor(n_estimators=1500, max_depth=2, learning_rate=0.01),
-        #"elasticnet": linear_model.ElasticNetCV(l1_ratio = elasticnet_init["l1_ratio"], alphas = elasticnet_init["alpha"], max_iter = 1000, cv = 3),
-        #"svr": svm.SVR(kernel="linear", C=1e3)
+        "elasticnet": linear_model.ElasticNetCV(l1_ratio = __elasticnet_init["l1_ratio"], alphas = __elasticnet_init["alpha"], max_iter = 1000, cv = 3)
     }
 
-    default_model_type = "linear regression"
 
-    def __remodel__(self, model_type, regr, X):
+    def __remodel__(self, model_type, regr, __X_train, __Y_train):
+        """
+        Function to retrain certain models based on optimal alphas and/or ratios
+        """
         if model_type == "ridge":
             alpha = regr.alpha_
             regr = linear_model.RidgeCV(alphas = self.__realpha__(alpha), cv = 10)
@@ -70,24 +105,35 @@ class NNNBA:
         elif model_type == "elasticnet":
             alpha = regr.alpha_
             ratio = regr.l1_ratio_
-            regr = linear_model.ElasticNetCV(l1_ratio = self.__reratio__(ratio), alphas = self.elasticnet_init["alpha"], max_iter = 1000, cv = 3)
+            regr = linear_model.ElasticNetCV(l1_ratio = self.__reratio__(ratio), alphas = self.__elasticnet_init["alpha"], max_iter = 1000, cv = 3)
 
-        regr.fit(X, self.Y)
+        regr.fit(__X_train, __Y_train)
         return regr
+
+    def __normalize_salary__(self, col, max_salary=assumed_max_salary): # scales out to max contract; max taken from https://www.hoopsrumors.com/2017/05/nba-maximum-salary-projections-for-201718.html
+        """
+        Function to normalize salary so that the max is maximum salary possible, as yoy max salary changes
+        """
+        min_salary = min(col)
+        local_max_salary = max(col)
+        return max_salary - (local_max_salary - col)/(local_max_salary - min_salary) * (max_salary - min_salary)
         
 
-    def __init__(self):
+    def __init__(self, debug=False):
+        logger.setLevel( logging.DEBUG if debug else logging.ERROR)
         with open("crawled_data/raw_data.json", "r") as data_file:
             raw_data = json.load(data_file)
 
         columns = raw_data[0]["header"]
+        unique_columns = list(set( raw_data[0]["header"]))
+        logger.debug("Columns: " + ", ".join(unique_columns))
         positions = ["Point Guard", "Center", "Power Forward", "Shooting Guard", "Small Forward"]
         for i, val in enumerate(positions):
             positions[i] = (val, i)
         positions_convert = dict(positions)
 
         self.X_df = pd.DataFrame(columns=columns)
-        Y_df = pd.DataFrame()
+        Y_df = pd.DataFrame(columns=["SALARIES"])
         age = []
         positions = []
         names = pd.DataFrame(columns=[ "NAME", "PROJECTED_SALARIES" ])
@@ -96,11 +142,11 @@ class NNNBA:
         logger.debug("Processing data")
         for i, player in enumerate(raw_data):
             if "2016_17" in player["salaries"] and "2016-17" in player["stats"]:
-                Y_df = Y_df.append([player["salaries"]["2016_17"]])
+                Y_df.loc[len(Y_df)] = player["salaries"]["2016_17"]
                 self.X_df.loc[len(self.X_df)] = player["stats"]["2016-17"]
                 age.append(player["age"])
 
-                # put in their own binary columns
+                #TODO: put in their own binary columns
                 position_num = []
                 for position in player["positions"]:
                     position_num.append(positions_convert[position])
@@ -115,30 +161,66 @@ class NNNBA:
             else:
                 continue
 
+        self.X_df = self.X_df.T.drop_duplicates().T
         self.X_df = pd.concat([self.X_df, pd.Series(age, name="AGE"), pd.Series(positions, name="POSITION")], axis=1) 
+        self.X_df = self.X_df.drop("FGA", 1).drop("W", 1).drop("L", 1).drop("W_PCT", 1)
 
-        # normalize skew
-        # skewed = self.X_df.apply(lambda x: skew(x)) 
-        # skewed_columns = skewed[skewed > 0.75].index # inspired by apapiu
-        # self.X_df[skewed_columns] = np.log1p(self.X_df[skewed_columns])
+        # remove players who's played less than 15 games
+        idx_of_lt_gp = self.X_df.index[self.X_df["GP"] < 15]
+        self.X_df = self.X_df.drop(idx_of_lt_gp)
+        Y_df = Y_df.drop(idx_of_lt_gp)
+        age = pd.Series(age).drop(idx_of_lt_gp)
+        positions = pd.Series(positions).drop(idx_of_lt_gp)
+        names = names.drop(idx_of_lt_gp)
 
 
-        X = self.X_df.values
+        
+        # Remove outliers
+        logger.debug("Remove outliers")
 
-        #X = normalize(X) #Normalize X decreases worth
+        X_train = self.X_df.copy()
+        Y_train = Y_df.copy()
+        logger.debug("No of rows at before: " + str(X_train.shape[0]))
+        to_be_dropped = []
+        ## remove upper
+        for col in self.__outlier_cols_upper:
+            logger.debug(col)
+            idx_of_median_outlier = self.__idx_of_median_outlier__(X_train[col], self.__threshold_per_col[col])
+            logger.debug(col +" should drop "+ ", ".join(names["NAME"][idx_of_median_outlier].values))
+            to_be_dropped = to_be_dropped + idx_of_median_outlier
 
-        self.Y = np.log1p(Y_df[0].values) # y = log(1+y)
+        ## remove lower
+        for col in ["DEF_RATING"]:
+            logger.debug(col)
+            idx_of_median_outlier = self.__idx_of_median_outlier__(X_train[col], self.__threshold_per_col[col], upper_outlier=False)
+            logger.debug(col +" should drop "+ ", ".join(names["NAME"][idx_of_median_outlier].values))
+            to_be_dropped = to_be_dropped + idx_of_median_outlier
+
+                   
+        to_be_dropped = list(set(to_be_dropped))
+        logger.debug("Outliers: " + ", ".join(names["NAME"][to_be_dropped].values))
+        X_train = X_train.drop(to_be_dropped)
+        Y_train = Y_train.drop(to_be_dropped)
+        logger.debug("No of rows at after: " + str(X_train.shape))
+        logger.debug("No of rows at after: " + str(Y_train.shape))
+
+
+
+        __X_train = X_train.values
+        __Y_train = np.log1p(Y_train["SALARIES"].values) # y = log(1+y)
+
+        self.Y_df = Y_df
         self.model_results = {}
         self.names = names
 
         for model_type, regr in self.models.items():
             logger.debug("Started  " + model_type)
             this_results = names.copy()
-            regr.fit(X, self.Y)
+            regr.fit(__X_train, __Y_train)
 
-            regr = self.__remodel__(model_type, regr, X)
+            regr = self.__remodel__(model_type, regr, __X_train, __Y_train)
             
-            results = np.expm1(regr.predict(X)) # y = exp(y) - 1
+            results = self.__normalize_salary__(np.expm1(regr.predict(self.X_df.values))) # y = exp(y) - 1
             this_results['WORTH'] = results
             
             diffY = this_results["PROJECTED_SALARIES"].values - results
@@ -149,24 +231,32 @@ class NNNBA:
             self.model_results[model_type] = this_results
             logger.debug("Finished " + model_type)
 
+        #get avg
+        this_results = self.model_results["linear regression"].copy()
+        this_results["WORTH"] = self.__normalize_salary__((0.6*self.model_results["linear regression"]["WORTH"] + 1.8*self.model_results["lasso"]["WORTH"] + 0.6*self.model_results["ridge"]["WORTH"])/3)
+        diffY = this_results["PROJECTED_SALARIES"].values - this_results["WORTH"]
+        this_results['SALARY_DIFF'] = diffY
+        self.model_results["avg"] = this_results
 
-    def findUndervalued(self, model_type=default_model_type):
+
+    def getUndervalued(self, model_type=default_model_type):
         names = self.model_results[model_type]
         print(names.loc[(names["SALARY_DIFF"] < 0) & (names["PROJECTED_SALARIES"] > 0)])
     
-    def findPlayerWorth(self, player_name, model_type=default_model_type):
+    def getPlayerValue(self, player_name, model_type=default_model_type):
         names = self.model_results[model_type]
         idx = names[names["NAME"] == player_name].index[0]
-        print("\nPaid: " + '${:,.2f}'.format(float(self.Y[idx])) + "\tFuture Salary: " + '${:,.2f}'.format(float(self.names["PROJECTED_SALARIES"][idx])) + "\tWorth: " + '${:,.2f}'.format(float(names["WORTH"][idx])) + "\n")
-        self.findPlayerStats(player_name, trim=True)
+
+        print("\nPaid: " + '${:,.2f}'.format(float(self.Y_df.loc[idx]["SALARIES"])) + "\tFuture Salary: " + '${:,.2f}'.format(float(self.names["PROJECTED_SALARIES"][idx])) + "\tWorth: " + '${:,.2f}'.format(float(names["WORTH"][idx])) + "\n")
+        self.getPlayerStats(player_name, trim=True)
     
-    def findPlayerStats(self, player_name, trim=False):
+    def getPlayerStats(self, player_name, trim=False):
         columns = self.X_df.columns
         if trim:
             columns = columns[:30]
         print(self.X_df.loc[self.names["NAME"] == player_name, columns])
     
-    def findMostValuablePlayer(self, model_type=default_model_type):
+    def getMostValuablePlayers(self, model_type=default_model_type):
         names = self.model_results[model_type]
         print(names.sort_values(by="WORTH")
     )
@@ -175,7 +265,10 @@ class NNNBA:
         for model in self.models:
             print(model)
 
-    def getCoefFromModel(self, model_name):
+    def getPlayerNameByIndex(self, index):
+        return self.names[self.name.index == index]
+
+    def getCoefFromModel(self, model_name= default_model_type):
         return pd.DataFrame(self.models[model_name].coef_, index=self.X_df.columns, columns=["coef"]).sort_values(by="coef")
 
 def get_data(parallel=True):

@@ -10,22 +10,42 @@ Open up python, ipython or jupyter notebook from the root directory of this proj
 
 There are 4 models available:
 * [linear regression](http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html)
-* [ridge](http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Ridge.html)
+* [lasso](http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LassoCV.html)
+* [ridge](http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.RidgeCV.html)
 * [bayesian ridge](http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.BayesianRidge.html)
 * [keras regressor](https://keras.io/scikit-learn-api/)
+* [XGBoost](http://xgboost.readthedocs.io/en/latest/python/python_api.html)
+* [ElasticNet](http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html)
+* [TheilSen](http://scikit-learn.org/stable/modules/generated/sklearn.linear_model.TheilSenRegressor.html#sklearn.linear_model.TheilSenRegressor)
 
+
+The default model (which can be set by `nnnba.default_model_type`) is **lasso**.
+
+### Most Valuable Players
 To find undervalued players, run
 
 ``` python
-> nnnba.findUndervalued()
+> nnnba.getMostValuablePlayers()
 ```
 
-where `model_type` is one of the models described above
+where `model_type` is one of the models described above.
 
-To find a player's worth in each model, run
+
+### Undervalued Players
+To find undervalued players, run
 
 ``` python
-> nnnba.findPlayerWorth(player_name)
+> nnnba.getUndervalued()
+```
+
+where `model_type` is one of the models described above.
+
+
+### Player Value by Model
+To find a player's value in each model, run
+
+``` python
+> nnnba.getPlayerValue(player_name)
 ```
 
 where `model_type` is one of the models described above, and `player_name` is the player's name
@@ -33,7 +53,7 @@ where `model_type` is one of the models described above, and `player_name` is th
 ### For example
 
 ``` python
-> nnnba.findPlayerWorth("Giannis Antetokounmpo")
+> nnnba.getPlayerValue("Giannis Antetokounmpo")
 ```
 
 

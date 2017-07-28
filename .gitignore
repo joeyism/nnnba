@@ -2,3 +2,4 @@
 *.swp
 **/*.pyc
 nba_cache.sqlite
+basketball.log

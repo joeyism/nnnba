@@ -30,8 +30,10 @@ class NNNBA:
     assumed_max_salary = 35350000.0
 
 
-    __threshold_per_col = {"OFF_RATING": 12, "PIE":0.11, "NET_RATING": 18, "GP": 50, "DEF_RATING": 7, "USG_PCT": 0.12, "FGA": None, "FGM": None, "FG3A": None, "PTS": None, "FTM": None, "FGM": None, "REB_PCT": None}
-    __outlier_cols_upper = ["OFF_RATING", "PIE", "NET_RATING", "USG_PCT", "PTS"]
+    __threshold_per_col = {"OFF_RATING": 12, "PIE":0.11, "NET_RATING": 18, "GP": 50, "DEF_RATING": 7, "USG_PCT": 0.12, "FGA": None, "FGM": None, "FG3A": None, "PTS": None, "FTM": None, "FGM": None, "REB_PCT": None, "AGE": 4}
+
+    __outlier_cols_upper = [] #["OFF_RATING", "PIE", "NET_RATING", "USG_PCT", "PTS"]
+    __outlier_cols_lower = [] #["DEF_RATING"]
 
     __ridge_init_alpha = [0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1, 3, 6, 10, 30, 60]
     __lasso_init_alpha = [0.0001, 0.0003, 0.0006, 0.001, 0.003, 0.006, 0.01, 0.03, 0.06, 0.1, 0.3, 0.6, 1]
@@ -56,12 +58,13 @@ class NNNBA:
         """
         Base Neural Network model
         """
+        input=39
         model = Sequential()
-        model.add(Dense(78, input_dim=78, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(40, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(80, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(40, kernel_initializer='normal', activation='relu'))
-        model.add(Dense(20, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(input, input_dim=input, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(int(input/2), kernel_initializer='normal', activation='relu'))
+        model.add(Dense(input, kernel_initializer='normal', activation='relu'))
+        model.add(Dense(int(input/2), kernel_initializer='normal', activation='relu'))
+        model.add(Dense(int(input/4), kernel_initializer='normal', activation='relu'))
         model.add(Dense(1, kernel_initializer='normal')) 
         model.compile(loss='mean_squared_error', optimizer='adam') 
         return model
@@ -86,10 +89,12 @@ class NNNBA:
         "linear regression": linear_model.LinearRegression(fit_intercept=True),
         "ridge": linear_model.RidgeCV(alphas = __ridge_init_alpha, fit_intercept=True),
         "lasso": linear_model.LassoCV( alphas = __lasso_init_alpha, max_iter = 5000, cv = 10, fit_intercept = True),
+        "bayes ridge": linear_model.BayesianRidge(),
         "keras regressor": KerasRegressor(build_fn=__baseline_model__, nb_epoch=100, batch_size=5, verbose=0),
         "xgb": xgb.XGBRegressor(n_estimators=1500, max_depth=2, learning_rate=0.01),
         "elasticnet": linear_model.ElasticNetCV(l1_ratio = __elasticnet_init["l1_ratio"], alphas = __elasticnet_init["alpha"], max_iter = 1000, cv = 3),
-        "theilsen": linear_model.TheilSenRegressor()
+        "theilsen": linear_model.TheilSenRegressor(),
+        "polynomial": Pipeline([('poly', PolynomialFeatures(degree=2)), ('linear', linear_model.LinearRegression(fit_intercept=True))])
     }
 
 
@@ -127,17 +132,17 @@ class NNNBA:
 
         columns = raw_data[0]["header"]
         unique_columns = list(set( raw_data[0]["header"]))
-        logger.debug("Columns: " + ", ".join(unique_columns))
-        positions = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"]
+        position_names = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"]
+        positions = []
 
-        for i, val in enumerate(positions):
-            positions[i] = (val, i)
+        for i, val in enumerate(position_names):
+            positions.append((val, i))
         positions_convert = dict(positions)
 
         self.X_df = pd.DataFrame(columns=columns)
         Y_df = pd.DataFrame(columns=["SALARIES"])
         age = []
-        positions = []
+        positions_df = pd.DataFrame(columns = position_names)
         names = pd.DataFrame(columns=[ "NAME", "PROJECTED_SALARIES" ])
 
 
@@ -148,11 +153,9 @@ class NNNBA:
                 self.X_df.loc[len(self.X_df)] = player["stats"]["2016-17"]
                 age.append(player["age"])
 
-                #TODO: put in their own binary columns
-                position_num = []
+                positions_df.loc[len(positions_df)] = [0,0,0,0,0]
                 for position in player["positions"]:
-                    position_num.append(positions_convert[position])
-                positions.append(sum(position_num)/len(position_num))
+                    positions_df[position][len(positions_df)] = 1
 
                 projected_salaries = 0
                 try:
@@ -163,23 +166,24 @@ class NNNBA:
             else:
                 continue
 
-        #for col in ["DREB", "PTS", "FGM", "REB", "FG3M", "PCT_FG3M"]:
-        #    if min(self.X_df[col]) > 0:
-        #        try:
-        #            self.X_df[col] = np.log1p(self.X_df[col])
-        #        except:
-        #            pass
+        for col in []:
+            try:
+                self.X_df[col] = np.tanh(self.X_df[col])
+            except:
+                pass
 
         self.X_df = self.X_df.T.drop_duplicates().T
-        self.X_df = pd.concat([self.X_df, pd.Series(age, name="AGE"), pd.Series(positions, name="POSITION")], axis=1) 
-        self.X_df = self.X_df.drop("FGA", 1).drop("W", 1).drop("L", 1).drop("W_PCT", 1)
+        self.X_df = pd.concat([self.X_df, pd.Series(age, name="AGE"), positions_df], axis=1) 
 
-        # remove players who's played less than 15 games or young players (no way else to find if a player is on a rookie contract or not)
-        idx_of_lt_gp = self.X_df.index[(self.X_df["GP"] < 15) | (self.X_df["AGE"] <= 22)]
+        self.X_df = self.X_df.drop(["FGA", "L", "AGE", "PCT_TOV", "BLKA", "AST_PCT", "AST_RATIO", "OREB_PCT", "DREB_PCT", "REB_PCT", "TM_TOV_PCT", "PACE", "OPP_PTS_OFF_TOV", "OPP_PTS_FB", "OPP_PTS_PAINT", 'OPP_PTS_2ND_CHANCE', 'OPP_PTS_FB', 'PCT_FGA_2PT', 'PCT_FGA_3PT', 'PCT_PTS_2PT', 'PCT_PTS_2PT_MR', 'PCT_PTS_3PT', 'PCT_PTS_FB', 'PCT_PTS_FT', 'PCT_PTS_OFF_TOV','PCT_PTS_PAINT', 'PCT_AST_2PM', 'PCT_UAST_2PM', 'PCT_AST_3PM', 'PCT_UAST_3PM', 'PCT_AST_FGM', 'PCT_UAST_FGM', 'PCT_FGM', 'PCT_FGA','PCT_FG3M', 'PCT_FG3A', 'PCT_FTM', 'PCT_FTA', 'PCT_OREB', 'PCT_DREB','PCT_REB', 'PCT_AST', 'PCT_STL', 'PCT_BLK', 'PCT_BLKA', 'PTS_OFF_TOV', 'PTS_FB', 'PTS_PAINT'], 1)
+
+        logger.debug("Columns: " + ", ".join(self.X_df.columns))
+        # remove players who's played less than 15 games
+        idx_of_lt_gp = self.X_df.index[(self.X_df["GP"] < 15)]
         self.X_df = self.X_df.drop(idx_of_lt_gp)
         Y_df = Y_df.drop(idx_of_lt_gp)
         age = pd.Series(age).drop(idx_of_lt_gp)
-        positions = pd.Series(positions).drop(idx_of_lt_gp)
+        positions_df = positions_df.drop(idx_of_lt_gp)
         names = names.drop(idx_of_lt_gp)
 
 
@@ -189,7 +193,7 @@ class NNNBA:
 
         X_train = self.X_df.copy()
         Y_train = Y_df.copy()
-        logger.debug("No of rows at before: " + str(X_train.shape[0]))
+        logger.debug("No of rows before removing outliers: " + str(X_train.shape[0]))
         to_be_dropped = []
         ## remove upper
         for col in self.__outlier_cols_upper:
@@ -199,7 +203,7 @@ class NNNBA:
             to_be_dropped = to_be_dropped + idx_of_median_outlier
 
         ## remove lower
-        for col in ["DEF_RATING"]:
+        for col in self.__outlier_cols_lower:
             logger.debug(col)
             idx_of_median_outlier = self.__idx_of_median_outlier__(X_train[col], self.__threshold_per_col[col], upper_outlier=False)
             logger.debug(col +" should drop "+ ", ".join(names["NAME"][idx_of_median_outlier].values))
@@ -210,12 +214,12 @@ class NNNBA:
         logger.debug("Outliers: " + ", ".join(names["NAME"][to_be_dropped].values))
         X_train = X_train.drop(to_be_dropped)
         Y_train = Y_train.drop(to_be_dropped)
-        logger.debug("No of rows at after: " + str(X_train.shape))
-        logger.debug("No of rows at after: " + str(Y_train.shape))
+        logger.debug("No of rows after removing outliers: " + str(X_train.shape))
+        logger.debug("No of rows after removing outliers: " + str(Y_train.shape))
 
 
 
-        __X_train = X_train.values
+        __X_train = X_train.values # training data only includes non-rookies
         __Y_train = np.log1p(Y_train["SALARIES"].values) # y = log(1+y)
 
         self.Y_df = Y_df
@@ -242,7 +246,7 @@ class NNNBA:
 
         #get avg
         this_results = self.model_results["linear regression"].copy()
-        this_results["WORTH"] = self.__normalize_salary__((0.6*self.model_results["linear regression"]["WORTH"] + 1.8*self.model_results["lasso"]["WORTH"] + 0.6*self.model_results["ridge"]["WORTH"])/3)
+        this_results["WORTH"] = self.__normalize_salary__((1.*self.model_results["bayes ridge"]["WORTH"] + 1.*self.model_results["lasso"]["WORTH"] + 1.*self.model_results["elasticnet"]["WORTH"])/3)
         diffY = this_results["PROJECTED_SALARIES"].values - this_results["WORTH"]
         this_results['SALARY_DIFF'] = diffY
         self.model_results["avg"] = this_results
@@ -277,8 +281,8 @@ class NNNBA:
     def getPlayerNameByIndex(self, index):
         return self.names[self.name.index == index]
 
-    def getCoefFromModel(self, model_name= default_model_type):
-        return pd.DataFrame(self.models[model_name].coef_, index=self.X_df.columns, columns=["coef"]).sort_values(by="coef")
+    def getCoefFromModel(self, model_type= default_model_type):
+        return pd.DataFrame(self.models[model_type].coef_, index=self.X_df.columns, columns=["coef"]).sort_values(by="coef")
 
     def plotXCol(self, col_name, X = None):
         import matplotlib.pyplot as plt

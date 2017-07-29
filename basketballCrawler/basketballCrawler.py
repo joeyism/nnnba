@@ -4,7 +4,7 @@ import string
 import pandas as pd
 import logging
 from difflib import SequenceMatcher
-from player import Player,getSoupFromURL
+from .player import Player,getSoupFromURL
 
 
 __all__ = ['getSoupFromURL', 'getCurrentPlayerNamesAndURLS',

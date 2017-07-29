@@ -6,7 +6,7 @@ def getSoupFromURL(url, suppressOutput=True):
     This function grabs the url and returns and returns the BeautifulSoup object
     """
     if not suppressOutput:
-        print url
+        print(url)
 
     try:
         r = requests.get(url)

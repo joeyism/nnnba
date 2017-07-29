@@ -1,1 +1,1 @@
-from basketballCrawler import *
+from .basketballCrawler import *

@@ -1,8 +1,9 @@
 import json
+import os
 import pandas as pd
 import sys
 import numpy as np
-from logger import *
+from .logger import *
 import logging
 
 from keras.models import Sequential
@@ -16,7 +17,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn import svm
 from scipy.stats import skew
 import xgboost as xgb
-import prepare_data
+from . import prepare_data
 
 pd.set_option('display.max_columns', None)
 
@@ -127,7 +128,8 @@ class NNNBA:
 
     def __init__(self, debug=False):
         logger.setLevel( logging.DEBUG if debug else logging.ERROR)
-        with open("crawled_data/raw_data.json", "r") as data_file:
+        fn = os.path.join(os.path.dirname(__file__), "crawled_data/raw_data.json")
+        with open(fn, "r") as data_file:
             raw_data = json.load(data_file)
 
         columns = raw_data[0]["header"]

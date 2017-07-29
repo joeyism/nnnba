@@ -3,7 +3,7 @@ import requests
 from nba_py import player
 from lxml import html
 import re
-from logger import *
+from .logger import *
 
 class NBA_player:
 

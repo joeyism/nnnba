@@ -31,6 +31,8 @@ class NNNBA:
     assumed_max_salary = 35350000.0
 
 
+    all_player_names = []
+
     __threshold_per_col = {"OFF_RATING": 12, "PIE":0.11, "NET_RATING": 18, "GP": 50, "DEF_RATING": 7, "USG_PCT": 0.12, "FGA": None, "FGM": None, "FG3A": None, "PTS": None, "FTM": None, "FGM": None, "REB_PCT": None, "AGE": 4}
 
     __outlier_cols_upper = [] #["OFF_RATING", "PIE", "NET_RATING", "USG_PCT", "PTS"]
@@ -165,6 +167,7 @@ class NNNBA:
                 except:
                     pass
                 names.loc[len(names)] = [ player["name"], projected_salaries ]
+                self.all_player_names.append(player["name"])
             else:
                 continue
 
@@ -256,29 +259,34 @@ class NNNBA:
 
     def getUndervalued(self, model_type=default_model_type):
         names = self.model_results[model_type]
-        print(names.loc[(names["SALARY_DIFF"] < 0) & (names["PROJECTED_SALARIES"] > 0)])
+        return names.loc[(names["SALARY_DIFF"] < 0) & (names["PROJECTED_SALARIES"] > 0)]
     
     def getPlayerValue(self, player_name, model_type=default_model_type):
         names = self.model_results[model_type]
         idx = names[names["NAME"] == player_name].index[0]
+        paid = float(self.Y_df.loc[idx]["SALARIES"])
+        projected_salary = float(self.names["PROJECTED_SALARIES"][idx])
+        worth = float(names["WORTH"][idx])
 
-        print("\nPaid: " + '${:,.2f}'.format(float(self.Y_df.loc[idx]["SALARIES"])) + "\tFuture Salary: " + '${:,.2f}'.format(float(self.names["PROJECTED_SALARIES"][idx])) + "\tWorth: " + '${:,.2f}'.format(float(names["WORTH"][idx])) + "\n")
         self.getPlayerStats(player_name, trim=True)
+        return {"paid": paid, "projected_salaries": projected_salaries, "worth": worth}
     
     def getPlayerStats(self, player_name, trim=False):
         columns = self.X_df.columns
         if trim:
             columns = columns[:30]
-        print(self.X_df.loc[self.names["NAME"] == player_name, columns])
+        return self.X_df.loc[self.names["NAME"] == player_name, columns]
     
     def getMostValuablePlayers(self, model_type=default_model_type):
         names = self.model_results[model_type]
-        print(names.sort_values(by="WORTH")
+        return names.sort_values(by="WORTH")
     )
     
     def showAvailableModels(self):
+        available_model = []
         for model in self.models:
-            print(model)
+            available_model.append(model)
+        return available_model
 
     def getPlayerNameByIndex(self, index):
         return self.names[self.name.index == index]
@@ -293,6 +301,7 @@ class NNNBA:
         plt.figure()
         plt.scatter(range(len(X)), X)
         plt.show()
+
 
 def get_data(parallel=True):
     prepare_data.start(parallel=parallel)

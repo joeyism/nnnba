@@ -158,7 +158,7 @@ class NNNBA:
                 age.append(player["age"])
 
                 positions_df.loc[len(positions_df)] = [0,0,0,0,0]
-                for position in player["positions"]:
+                for position in player["positions"]: #TODO: fix positions
                     positions_df[position][len(positions_df)] = 1
 
                 projected_salaries = 0
@@ -167,7 +167,6 @@ class NNNBA:
                 except:
                     pass
                 names.loc[len(names)] = [ player["name"], projected_salaries ]
-                self.all_player_names.append(player["name"])
             else:
                 continue
 
@@ -256,6 +255,9 @@ class NNNBA:
         this_results['SALARY_DIFF'] = diffY
         self.model_results["avg"] = this_results
 
+        # add all_player_names
+        self.all_player_names = list(names["NAME"].values)
+
 
     def getUndervalued(self, model_type=default_model_type):
         names = self.model_results[model_type]
@@ -265,7 +267,7 @@ class NNNBA:
         names = self.model_results[model_type]
         idx = names[names["NAME"] == player_name].index[0]
         paid = float(self.Y_df.loc[idx]["SALARIES"])
-        projected_salary = float(self.names["PROJECTED_SALARIES"][idx])
+        projected_salaries = float(self.names["PROJECTED_SALARIES"][idx])
         worth = float(names["WORTH"][idx])
 
         self.getPlayerStats(player_name, trim=True)
@@ -280,7 +282,7 @@ class NNNBA:
     def getMostValuablePlayers(self, model_type=default_model_type):
         names = self.model_results[model_type]
         return names.sort_values(by="WORTH")
-    )
+    
     
     def showAvailableModels(self):
         available_model = []

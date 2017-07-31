@@ -1,3 +1,4 @@
+import os
 from . import nba
 from .nba import *
 from .  import basketballCrawler as bc
@@ -32,8 +33,10 @@ def start(parallel=True, measure_type="Advanced"):
     print ("Start")
     print ("nbastats = nba.getAllPlayers()")
     nbastats = nba.getAllPlayers()
-    print ("bballref_players = bc.loadPlayerDictionary('crawled_data/players.json')")
-    bballref_players = bc.loadPlayerDictionary('crawled_data/players.json')
+
+    fn = os.path.join(os.path.dirname(__file__), 'crawled_data/players.json')
+    print ("bballref_players = bc.loadPlayerDictionary('" + fn + "')")
+    bballref_players = bc.loadPlayerDictionary(fn)
     
     print ("process to raw data")
     raw_data = []

@@ -286,7 +286,7 @@ class NNNBA:
     
     def showAvailableModels(self):
         available_model = []
-        for model in self.models:
+        for model in self.model_results:
             available_model.append(model)
         return available_model
 

@@ -29,6 +29,10 @@ class NNNBA:
 
     default_model_type = "lasso"
     assumed_max_salary = 35350000.0
+    
+    current_team_cap = 94143000.0
+    future_team_cap = 99093000.0
+    
 
 
     all_player_names = []
@@ -93,7 +97,7 @@ class NNNBA:
         "ridge": linear_model.RidgeCV(alphas = __ridge_init_alpha, fit_intercept=True),
         "lasso": linear_model.LassoCV( alphas = __lasso_init_alpha, max_iter = 5000, cv = 10, fit_intercept = True),
         "bayes ridge": linear_model.BayesianRidge(),
-        "keras regressor": KerasRegressor(build_fn=__baseline_model__, nb_epoch=100, batch_size=5, verbose=0),
+        #"keras regressor": KerasRegressor(build_fn=__baseline_model__, nb_epoch=100, batch_size=5, verbose=0),
         "xgb": xgb.XGBRegressor(n_estimators=1500, max_depth=2, learning_rate=0.01),
         "elasticnet": linear_model.ElasticNetCV(l1_ratio = __elasticnet_init["l1_ratio"], alphas = __elasticnet_init["alpha"], max_iter = 1000, cv = 3),
         "theilsen": linear_model.TheilSenRegressor(),
@@ -139,14 +143,14 @@ class NNNBA:
         position_names = ["Point Guard", "Shooting Guard", "Small Forward", "Power Forward", "Center"]
         positions = []
 
-        for i, val in enumerate(position_names):
-            positions.append((val, i))
-        positions_convert = dict(positions)
+        # for i, val in enumerate(position_names):
+        #     positions.append((val, i))
+        # positions_convert = dict(positions)
 
         self.X_df = pd.DataFrame(columns=columns)
         Y_df = pd.DataFrame(columns=["SALARIES"])
         age = []
-        positions_df = pd.DataFrame(columns = position_names)
+        #positions_df = pd.DataFrame(columns = position_names)
         names = pd.DataFrame(columns=[ "NAME", "PROJECTED_SALARIES" ])
 
 
@@ -157,9 +161,9 @@ class NNNBA:
                 self.X_df.loc[len(self.X_df)] = player["stats"]["2016-17"]
                 age.append(player["age"])
 
-                positions_df.loc[len(positions_df)] = [0,0,0,0,0]
-                for position in player["positions"]: #TODO: fix positions
-                    positions_df[position][len(positions_df)] = 1
+                # positions_df.loc[len(positions_df)] = [0,0,0,0,0]
+                # for position in player["positions"]: #TODO: fix positions
+                #     positions_df[position][len(positions_df)] = 1
 
                 projected_salaries = 0
                 try:
@@ -177,18 +181,31 @@ class NNNBA:
                 pass
 
         self.X_df = self.X_df.T.drop_duplicates().T
-        self.X_df = pd.concat([self.X_df, pd.Series(age, name="AGE"), positions_df], axis=1) 
+        self.X_df = pd.concat([self.X_df, pd.Series(age, name="AGE")], axis=1) 
 
-        self.X_df = self.X_df.drop(["FGA", "L", "AGE", "PCT_TOV", "BLKA", "AST_PCT", "AST_RATIO", "OREB_PCT", "DREB_PCT", "REB_PCT", "TM_TOV_PCT", "PACE", "OPP_PTS_OFF_TOV", "OPP_PTS_FB", "OPP_PTS_PAINT", 'OPP_PTS_2ND_CHANCE', 'OPP_PTS_FB', 'PCT_FGA_2PT', 'PCT_FGA_3PT', 'PCT_PTS_2PT', 'PCT_PTS_2PT_MR', 'PCT_PTS_3PT', 'PCT_PTS_FB', 'PCT_PTS_FT', 'PCT_PTS_OFF_TOV','PCT_PTS_PAINT', 'PCT_AST_2PM', 'PCT_UAST_2PM', 'PCT_AST_3PM', 'PCT_UAST_3PM', 'PCT_AST_FGM', 'PCT_UAST_FGM', 'PCT_FGM', 'PCT_FGA','PCT_FG3M', 'PCT_FG3A', 'PCT_FTM', 'PCT_FTA', 'PCT_OREB', 'PCT_DREB','PCT_REB', 'PCT_AST', 'PCT_STL', 'PCT_BLK', 'PCT_BLKA', 'PTS_OFF_TOV', 'PTS_FB', 'PTS_PAINT'], 1)
+        # v2 cleaning
+        self.X_df["MIN_x_NET_RATING"] = self.X_df["MIN"]*self.X_df["NET_RATING"]
+        Y_df["SALARIES"] = Y_df["SALARIES"]/self.current_team_cap
+
 
         logger.debug("Columns: " + ", ".join(self.X_df.columns))
         # remove players who's played less than 15 games
-        idx_of_lt_gp = self.X_df.index[(self.X_df["GP"] < 15)]
+        idx_of_lt_gp = self.X_df.index[(self.X_df["g"] < 15)]
         self.X_df = self.X_df.drop(idx_of_lt_gp)
         Y_df = Y_df.drop(idx_of_lt_gp)
         age = pd.Series(age).drop(idx_of_lt_gp)
-        positions_df = positions_df.drop(idx_of_lt_gp)
+        #positions_df = positions_df.drop(idx_of_lt_gp)
         names = names.drop(idx_of_lt_gp)
+
+
+        self.X_df = self.X_df.drop(["fg3a_per_g", "fg2a_per_g", "fga_per_g", "g", "gs", "mp_per_g", "mp", "age",'GP', 'W', 'W_PCT', 'MIN', 'FGM', 'FG_PCT', 'FG3M', 'FG3A', 'FG3_PCT', 'FTM', 'FTA', 'FT_PCT', 'OREB', 'DREB', 'REB', 'AST', 'TOV', 'STL','BLK', 'PF', 'PFD', 'PTS', 'PLUS_MINUS', 'DD2', 'TD3', 'OFF_RATING', 'DEF_RATING', 'NET_RATING', 'AST_TO', 'EFG_PCT', 'TS_PCT', 'USG_PCT',  'PIE', 'PTS_2ND_CHANCE', "FGA", "L", "AGE", "PCT_TOV", "BLKA", "AST_PCT", "AST_RATIO", "OREB_PCT", "DREB_PCT", "REB_PCT", "TM_TOV_PCT", "PACE", "OPP_PTS_OFF_TOV", "OPP_PTS_FB", "OPP_PTS_PAINT", 'OPP_PTS_2ND_CHANCE', 'OPP_PTS_FB', 'PCT_FGA_2PT', 'PCT_FGA_3PT', 'PCT_PTS_2PT', 'PCT_PTS_2PT_MR', 'PCT_PTS_3PT', 'PCT_PTS_FB', 'PCT_PTS_FT', 'PCT_PTS_OFF_TOV','PCT_PTS_PAINT', 'PCT_AST_2PM', 'PCT_UAST_2PM', 'PCT_AST_3PM', 'PCT_UAST_3PM', 'PCT_AST_FGM', 'PCT_UAST_FGM', 'PCT_FGM', 'PCT_FGA','PCT_FG3M', 'PCT_FG3A', 'PCT_FTM', 'PCT_FTA', 'PCT_OREB', 'PCT_DREB','PCT_REB', 'PCT_AST', 'PCT_STL', 'PCT_BLK', 'PCT_BLKA', 'PTS_OFF_TOV', 'PTS_FB', 'PTS_PAINT', 'team_id', 'lg_id', 'pos'], 1)
+
+
+
+        # fill in empty to be zero
+        for col in self.X_df.columns:
+            self.X_df[col] = self.X_df[col].replace(r'', np.nan, regex=True)
+            self.X_df[col] = self.X_df[col].fillna(0)
 
 
         
@@ -222,7 +239,6 @@ class NNNBA:
         logger.debug("No of rows after removing outliers: " + str(Y_train.shape))
 
 
-
         __X_train = X_train.values # training data only includes non-rookies
         __Y_train = np.log1p(Y_train["SALARIES"].values) # y = log(1+y)
 
@@ -233,14 +249,15 @@ class NNNBA:
         for model_type, regr in self.models.items():
             logger.debug("Started  " + model_type)
             this_results = names.copy()
+
             regr.fit(__X_train, __Y_train)
 
             regr = self.__remodel__(model_type, regr, __X_train, __Y_train)
             
-            results = self.__normalize_salary__(np.expm1(regr.predict(self.X_df.values))) # y = exp(y) - 1
+            results = self.__normalize_salary__(self.future_team_cap*np.expm1(regr.predict(self.X_df.values))) # y = exp(y) - 1
             this_results['WORTH'] = results
             
-            diffY = this_results["PROJECTED_SALARIES"].values - results
+            diffY = results - this_results["PROJECTED_SALARIES"].values
             this_results['SALARY_DIFF'] = diffY
             this_results = this_results.sort_values(by="SALARY_DIFF", ascending=False)
             

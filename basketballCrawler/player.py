@@ -26,6 +26,7 @@ class Player(object):
     overview_url_content = None
     gamelog_data = None
     gamelog_url_list = []
+    current_stats = {}
 
     def __init__(self,_name,_overview_url,scrape_data=True):
         self.name = _name
@@ -42,6 +43,7 @@ class Player(object):
         self.gamelog_data = None
         self.gamelog_url_list = []
         self.age = None
+        self.current_stats = {}
 
         if scrape_data:
             self.scrape_data()
@@ -58,15 +60,17 @@ class Player(object):
             player_position_text = overview_soup.findAll(text=re.compile(u'(Point Guard|Center|Power Forward|Shooting Guard|Small Forward)'))[0]
             player_height_text = overview_soup.findAll(text=re.compile(self.HEIGHT_PATTERN))[0]
             player_weight_text = overview_soup.findAll(text=re.compile(self.WEIGHT_PATTERN))[0]
-            self.height = re.findall(self.HEIGHT_PATTERN,player_height_text)[0].strip().encode("utf8")
-            self.weight = re.findall(self.WEIGHT_PATTERN,player_weight_text)[0].strip().encode("utf8")
+            self.height = re.findall(self.HEIGHT_PATTERN,player_height_text)[0].strip()
+            self.weight = re.findall(self.WEIGHT_PATTERN,player_weight_text)[0].strip()
             tempPositions = re.findall(self.POSN_PATTERN,player_position_text)
-            self.positions = [position.strip().encode("utf8") for position in tempPositions]
-            self.salaries = self.findSalaries(overview_soup)
-            self.age = self.findAge(overview_soup)
+            self.positions = [position.strip() for position in tempPositions]
+            self.salaries = self.__findSalaries(overview_soup)
+            self.age = self.__findAge(overview_soup)
+
+            self.current_stats = self.__findCurrentStats(overview_soup)
 
         except Exception as ex:
-            logging.error(ex.message)
+            logging.error(ex)
             self.positions = []
             self.height = None
             self.weight = None
@@ -81,26 +85,47 @@ class Player(object):
             for game_log_link in game_log_links:
                 self.gamelog_url_list.append('http://www.basketball-reference.com' + game_log_link.get('href'))
 
-    def findSalaries(self, soupped):
+    def __findSalaries(self, soupped):
         total_salaries = []
         all_all_salaries = soupped.find("div", {"id": "all_all_salaries"})
         comments=all_all_salaries.find_all(string=lambda text:isinstance(text,Comment))
         raw_salary_rows = BeautifulSoup(comments[0], "lxml").find("tbody").find_all("tr")
         for each_raw_salary in raw_salary_rows:
-            year = each_raw_salary.find("th").text.replace("-","_").encode("utf8")
-            salary = self.salaryTextToFloat(each_raw_salary.find_all("td")[2].text)
+            year = each_raw_salary.find("th").text.replace("-","_")
+            salary = self.__salaryTextToFloat(each_raw_salary.find_all("td")[2].text)
             total_salaries.append((year, salary))
         return total_salaries
 
-    def findAge(self, soupped):
+    def __findAge(self, soupped):
         year = soupped.find("span", {"id": "necro-birth"})
         birth_year = year.get("data-birth")
         birth_time = datetime.strptime(birth_year, '%Y-%m-%d')
         rel =  relativedelta(date.today(), birth_time)
         return rel.years
 
-    def salaryTextToFloat(self, text):
+    def __salaryTextToFloat(self, text):
         return float(text[1:].replace(",",""))
+
+    def __findCurrentStats(self, soupped):
+        year = str(datetime.now().year)
+        current_stats = {}
+
+        per_game = soupped.find("tr", {"id": "per_game." + year })
+
+        all_advanced = soupped.find("div", {"id": "all_advanced" })
+        comments = all_advanced.find_all(string=lambda text:isinstance(text,Comment))
+        all_advanced_rows = BeautifulSoup(comments[0], "lxml").find("tbody")
+
+        for game_stat in [per_game, all_advanced_rows]:
+            for td in game_stat.find_all("td"):
+                data_stat = td.get("data-stat")
+                if data_stat in ["Xxx", "Yyy"]:
+                    continue
+                data_val = td.text
+                current_stats[data_stat] = data_val
+
+        return current_stats
 
     def to_json(self):
         return json.dumps(self.__dict__)
+

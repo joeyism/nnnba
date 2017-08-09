@@ -9,13 +9,19 @@ from .logger import *
 
 def start(parallel=True, measure_type="Advanced"):
     pool = ThreadPool(4)
+
+    def to_float(s):
+        try:
+            return float(s)
+        except:
+            return s
     
     def process_to_raw_data(bballref_players, player_stat_info): #TODO: Add position
 
         nba_player = NBA_player(player_stat_info[0], player_stat_info[1], player_stat_info[2])
 
         try: #ignore ones who aren't playing this upcoming year, i.e. retired
-            bballref_players[nba_player.name]
+            this_bballref_player = bballref_players[nba_player.name]
         except:
             return None
 
@@ -25,9 +31,17 @@ def start(parallel=True, measure_type="Advanced"):
             nba_player.getPlayerAdvStats()
         elif measure_type == "Basic":
             nba_player.getPlayerStats()
-        nba_player.setSalaries(bballref_players[nba_player.name].salaries)
-        nba_player.setAge(bballref_players[nba_player.name].age)
-        nba_player.setPositions(bballref_players[nba_player.name].positions)
+
+        try:
+            nba_player.stats["2016-17"] = nba_player.stats["2016-17"] + list(map(to_float, list(this_bballref_player.current_stats.values())))
+            nba_player.header = nba_player.header + list(this_bballref_player.current_stats.keys())
+        except:
+            logger.debug("ERROR: "+ player_stat_info[2])
+
+
+        nba_player.setSalaries(this_bballref_player.salaries)
+        nba_player.setAge(this_bballref_player.age)
+        nba_player.setPositions(this_bballref_player.positions)
         return nba_player.summarize()
     
     print ("Start")
@@ -53,6 +67,7 @@ def start(parallel=True, measure_type="Advanced"):
     fn = os.path.join(os.path.dirname(__file__), "crawled_data/raw_data.json")
     with open(fn, "w") as outfile:
         json.dump(raw_data, outfile)
+    logger.debug("done")
 
 if __name__ == "__main__":
     start()

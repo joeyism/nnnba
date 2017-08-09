@@ -30,7 +30,7 @@ def getCurrentPlayerNamesAndURLS(suppressOutput=True):
         # we know that all the currently active players have <strong> tags, so we'll limit our names to those
         current_names = letter_page.findAll('strong')
         for n in current_names:
-            name_data = n.children.next()
+            name_data = next(n.children)
             try:
                 names.append((name_data.contents[0], 'http://www.basketball-reference.com' + name_data.attrs['href']))
             except Exception as e:
@@ -84,8 +84,10 @@ def savePlayerDictionary(playerDictionary, pathToFile):
     """
     Saves player dictionary to a JSON file
     """
+    print("hi")
     player_json = {name: player_data.to_json() for name, player_data in playerDictionary.items()}
-    json.dump(player_json, open(pathToFile, 'wb'), indent=0)
+    print(player_json)
+    json.dump(player_json, open(pathToFile, 'w'), indent=0)
 
 
 def loadPlayerDictionary(pathToFile):

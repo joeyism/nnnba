@@ -26,7 +26,7 @@ class Player(object):
     overview_url_content = None
     gamelog_data = None
     gamelog_url_list = []
-    current_stats = {}
+    stats = []
 
     def __init__(self,_name,_overview_url,scrape_data=True):
         self.name = _name
@@ -43,13 +43,13 @@ class Player(object):
         self.gamelog_data = None
         self.gamelog_url_list = []
         self.age = None
-        self.current_stats = {}
+        self.stats = []
 
         if scrape_data:
             self.scrape_data()
 
     def scrape_data(self):
-        print(self.name,self.overview_url)
+        print(self.name, self.overview_url)
         if self.overview_url_content is not None:
             raise Exception("Can't populate this!")
 
@@ -67,7 +67,7 @@ class Player(object):
             self.salaries = self.__findSalaries(overview_soup)
             self.age = self.__findAge(overview_soup)
 
-            self.current_stats = self.__findCurrentStats(overview_soup)
+            self.stats = self.__findCurrentStats(overview_soup)
 
         except Exception as ex:
             logging.error(ex)
@@ -107,24 +107,33 @@ class Player(object):
         return float(text[1:].replace(",",""))
 
     def __findCurrentStats(self, soupped):
-        year = str(datetime.now().year)
-        current_stats = {}
+        results = []
+        for years_back in range(0,2):
 
-        per_game = soupped.find("tr", {"id": "per_game." + year })
+            try:
+                year = str(datetime.now().year - years_back)
+                current_stats = {}
 
-        all_advanced = soupped.find("div", {"id": "all_advanced" })
-        comments = all_advanced.find_all(string=lambda text:isinstance(text,Comment))
-        all_advanced_rows = BeautifulSoup(comments[0], "lxml").find("tbody")
+                per_game = soupped.find("tr", {"id": "per_game." + year })
+                title = per_game.find("th").text
 
-        for game_stat in [per_game, all_advanced_rows]:
-            for td in game_stat.find_all("td"):
-                data_stat = td.get("data-stat")
-                if data_stat in ["Xxx", "Yyy"]:
-                    continue
-                data_val = td.text
-                current_stats[data_stat] = data_val
+                all_advanced = soupped.find("div", {"id": "all_advanced" })
+                comments = all_advanced.find_all(string=lambda text:isinstance(text,Comment))
+                all_advanced_rows = BeautifulSoup(comments[0], "lxml").find("tbody")
 
-        return current_stats
+                for game_stat in [per_game, all_advanced_rows]:
+                    for td in game_stat.find_all("td"):
+                        data_stat = td.get("data-stat")
+                        if data_stat in ["Xxx", "Yyy"]:
+                            continue
+                        data_val = td.text
+                        current_stats[data_stat] = data_val
+
+                results.append( ( title, current_stats ))
+            except:
+                continue
+
+        return dict(results)
 
     def to_json(self):
         return json.dumps(self.__dict__)

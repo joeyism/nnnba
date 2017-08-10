@@ -20,24 +20,34 @@ def start(parallel=True, measure_type="Advanced"):
 
         nba_player = NBA_player(player_stat_info[0], player_stat_info[1], player_stat_info[2])
 
+        nba_player = nba.manualFix(nba_player)
+        logger.debug(nba_player.name)
+
+
+
         try: #ignore ones who aren't playing this upcoming year, i.e. retired
             this_bballref_player = bballref_players[nba_player.name]
+            this_bballref_player.stats.keys()
         except:
+            logger.debug("ERROR 1: " + player_stat_info[2])
             return None
 
-        logger.debug(nba_player.name)
-        nba_player = nba.manualFix(nba_player)
         if measure_type == "Advanced":
             nba_player.getPlayerAdvStats()
         elif measure_type == "Basic":
             nba_player.getPlayerStats()
 
-        try:
-            nba_player.stats["2016-17"] = nba_player.stats["2016-17"] + list(map(to_float, list(this_bballref_player.current_stats.values())))
-            nba_player.header = nba_player.header + list(this_bballref_player.current_stats.keys())
-        except:
-            logger.debug("ERROR: "+ player_stat_info[2])
+        successful = False
 
+        for bballref_year in list(this_bballref_player.stats.keys()):
+            try:
+                nba_player.stats[bballref_year] = nba_player.stats[bballref_year] + list(map(to_float, list(this_bballref_player.stats[bballref_year].values())))
+                successful = True
+            except:
+                logger.debug("ERROR 2: " + player_stat_info[2] + " " + str(bballref_year))
+
+        if successful:
+            nba_player.header = nba_player.header + list(this_bballref_player.stats[bballref_year].keys())
 
         nba_player.setSalaries(this_bballref_player.salaries)
         nba_player.setAge(this_bballref_player.age)

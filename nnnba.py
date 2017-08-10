@@ -131,6 +131,8 @@ class NNNBA:
         local_max_salary = max(col)
         return max_salary - (local_max_salary - col)/(local_max_salary - min_salary) * (max_salary - min_salary)
         
+    def __avg__(self, first, second):
+        return [(x + y)/2 if type(x) != str and type(y) != str else x for x, y in zip(first, second)]
 
     def __init__(self, debug=False):
         logger.setLevel( logging.DEBUG if debug else logging.ERROR)
@@ -158,7 +160,12 @@ class NNNBA:
         for i, player in enumerate(raw_data):
             if "2016_17" in player["salaries"] and "2016-17" in player["stats"]:
                 Y_df.loc[len(Y_df)] = player["salaries"]["2016_17"]
-                self.X_df.loc[len(self.X_df)] = player["stats"]["2016-17"]
+                if "2015-16" in player["stats"]:
+                    self.X_df.loc[len(self.X_df)] = self.__avg__(player["stats"]["2016-17"], player["stats"]["2015-16"])
+                else:
+                    self.X_df.loc[len(self.X_df)] = player["stats"]["2016-17"]
+
+
                 age.append(player["age"])
 
                 # positions_df.loc[len(positions_df)] = [0,0,0,0,0]
@@ -198,7 +205,7 @@ class NNNBA:
         names = names.drop(idx_of_lt_gp)
 
 
-        self.X_df = self.X_df.drop(["fg3a_per_g", "fg2a_per_g", "fga_per_g", "g", "gs", "mp_per_g", "mp", "age",'GP', 'W', 'W_PCT', 'MIN', 'FGM', 'FG_PCT', 'FG3M', 'FG3A', 'FG3_PCT', 'FTM', 'FTA', 'FT_PCT', 'OREB', 'DREB', 'REB', 'AST', 'TOV', 'STL','BLK', 'PF', 'PFD', 'PTS', 'PLUS_MINUS', 'DD2', 'TD3', 'OFF_RATING', 'DEF_RATING', 'NET_RATING', 'AST_TO', 'EFG_PCT', 'TS_PCT', 'USG_PCT',  'PIE', 'PTS_2ND_CHANCE', "FGA", "L", "AGE", "PCT_TOV", "BLKA", "AST_PCT", "AST_RATIO", "OREB_PCT", "DREB_PCT", "REB_PCT", "TM_TOV_PCT", "PACE", "OPP_PTS_OFF_TOV", "OPP_PTS_FB", "OPP_PTS_PAINT", 'OPP_PTS_2ND_CHANCE', 'OPP_PTS_FB', 'PCT_FGA_2PT', 'PCT_FGA_3PT', 'PCT_PTS_2PT', 'PCT_PTS_2PT_MR', 'PCT_PTS_3PT', 'PCT_PTS_FB', 'PCT_PTS_FT', 'PCT_PTS_OFF_TOV','PCT_PTS_PAINT', 'PCT_AST_2PM', 'PCT_UAST_2PM', 'PCT_AST_3PM', 'PCT_UAST_3PM', 'PCT_AST_FGM', 'PCT_UAST_FGM', 'PCT_FGM', 'PCT_FGA','PCT_FG3M', 'PCT_FG3A', 'PCT_FTM', 'PCT_FTA', 'PCT_OREB', 'PCT_DREB','PCT_REB', 'PCT_AST', 'PCT_STL', 'PCT_BLK', 'PCT_BLKA', 'PTS_OFF_TOV', 'PTS_FB', 'PTS_PAINT', 'team_id', 'lg_id', 'pos'], 1)
+        self.X_df = self.X_df.drop(["drb_per_g", "fg3a_per_g", "fg2a_per_g", "fga_per_g", "g", "gs", "mp_per_g", "mp", "age",'GP', 'W', 'W_PCT', 'MIN', 'FGM', 'FG_PCT', 'FG3M', 'FG3A', 'FG3_PCT', 'FTM', 'FTA', 'FT_PCT', 'OREB', 'DREB', 'REB', 'AST', 'TOV', 'STL','BLK', 'PF', 'PFD', 'PTS', 'PLUS_MINUS', 'DD2', 'TD3', 'OFF_RATING', 'DEF_RATING', 'NET_RATING', 'AST_TO', 'EFG_PCT', 'TS_PCT', 'USG_PCT',  'PIE', 'PTS_2ND_CHANCE', "FGA", "L", "AGE", "PCT_TOV", "BLKA", "AST_PCT", "AST_RATIO", "OREB_PCT", "DREB_PCT", "REB_PCT", "TM_TOV_PCT", "PACE", "OPP_PTS_OFF_TOV", "OPP_PTS_FB", "OPP_PTS_PAINT", 'OPP_PTS_2ND_CHANCE', 'OPP_PTS_FB', 'PCT_FGA_2PT', 'PCT_FGA_3PT', 'PCT_PTS_2PT', 'PCT_PTS_2PT_MR', 'PCT_PTS_3PT', 'PCT_PTS_FB', 'PCT_PTS_FT', 'PCT_PTS_OFF_TOV','PCT_PTS_PAINT', 'PCT_AST_2PM', 'PCT_UAST_2PM', 'PCT_AST_3PM', 'PCT_UAST_3PM', 'PCT_AST_FGM', 'PCT_UAST_FGM', 'PCT_FGM', 'PCT_FGA','PCT_FG3M', 'PCT_FG3A', 'PCT_FTM', 'PCT_FTA', 'PCT_OREB', 'PCT_DREB','PCT_REB', 'PCT_AST', 'PCT_STL', 'PCT_BLK', 'PCT_BLKA', 'PTS_OFF_TOV', 'PTS_FB', 'PTS_PAINT', 'team_id', 'lg_id', 'pos'], 1)
 
 
 
@@ -268,7 +275,7 @@ class NNNBA:
         #get avg
         this_results = self.model_results["linear regression"].copy()
         this_results["WORTH"] = self.__normalize_salary__((1.*self.model_results["bayes ridge"]["WORTH"] + 1.*self.model_results["lasso"]["WORTH"] + 1.*self.model_results["elasticnet"]["WORTH"])/3)
-        diffY = this_results["PROJECTED_SALARIES"].values - this_results["WORTH"]
+        diffY = this_results["WORTH"] - this_results["PROJECTED_SALARIES"].values
         this_results['SALARY_DIFF'] = diffY
         self.model_results["avg"] = this_results
 
@@ -278,7 +285,7 @@ class NNNBA:
 
     def getUndervalued(self, model_type=default_model_type):
         names = self.model_results[model_type]
-        return names.loc[(names["SALARY_DIFF"] < 0) & (names["PROJECTED_SALARIES"] > 0)]
+        return names.loc[(names["SALARY_DIFF"] > 0) & (names["PROJECTED_SALARIES"] > 0)].sort_values(by="SALARY_DIFF")
     
     def getPlayerValue(self, player_name, model_type=default_model_type):
         names = self.model_results[model_type]
